@@ -1,28 +1,20 @@
 // ══════════════════════════════════════════════════
 // backend/config/db.js
-// Pool de conexión a SQL Server (driver: mssql)
-// ══════════════════════════════════════════════════
+// Pool de conexión compatible con SQL Server local Y Azure SQL.
 //
-// Este módulo expone una única función getPool() que devuelve
-// siempre el mismo pool de conexiones ya conectado, reutilizándolo
-// entre llamadas en vez de abrir una conexión nueva por cada query.
+// La diferencia clave entre local y Azure:
+//   Local:  encrypt=false, trustServerCertificate=true
+//   Azure:  encrypt=true,  trustServerCertificate=false
 //
-// Uso típico desde un modelo:
-//
-//   const { getPool, sql } = require('../config/db');
-//
-//   async function getById(id) {
-//     const pool = await getPool();
-//     const result = await pool.request()
-//       .input('id', sql.Int, id)
-//       .query('SELECT * FROM maquinaria WHERE id = @id');
-//     return result.recordset[0] || null;
-//   }
-//
+// Esto se controla con la variable DB_ENCRYPT en el .env:
+//   DB_ENCRYPT=false  → SQL Server local (Express)
+//   DB_ENCRYPT=true   → Azure SQL Database
 // ══════════════════════════════════════════════════
 
 require('dotenv').config();
 const sql = require('mssql');
+
+const isAzure = process.env.DB_ENCRYPT === 'true';
 
 const config = {
   server:   process.env.DB_SERVER   || 'localhost',
@@ -31,12 +23,8 @@ const config = {
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   options: {
-    // SQL Server Express local normalmente no tiene un certificado
-    // válido firmado por una CA, así que hay que decirle al driver
-    // que confíe en el certificado igualmente (solo para desarrollo
-    // local; en producción contra un servidor real esto se ajusta).
-    encrypt: false,
-    trustServerCertificate: true,
+    encrypt:                isAzure,   // true en Azure, false en local
+    trustServerCertificate: !isAzure,  // true en local, false en Azure
   },
   pool: {
     max: 10,
@@ -47,11 +35,6 @@ const config = {
 
 let poolPromise = null;
 
-/**
- * Devuelve una promesa que resuelve al pool de conexión ya conectado.
- * Si ya existe un pool conectándose o conectado, reutiliza esa misma
- * promesa en vez de crear una conexión nueva cada vez.
- */
 function getPool() {
   if (!poolPromise) {
     poolPromise = new sql.ConnectionPool(config)
@@ -61,9 +44,6 @@ function getPool() {
         return pool;
       })
       .catch((err) => {
-        // Si la conexión falla, limpiamos poolPromise para que el
-        // próximo intento vuelva a intentar conectarse desde cero
-        // en lugar de quedar atascado con una promesa rechazada.
         poolPromise = null;
         console.error('✖  Error al conectar a SQL Server:', err.message);
         throw err;
