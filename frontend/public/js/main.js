@@ -172,7 +172,8 @@ function renderFooter() {
   const footer = document.querySelector('footer');
   if (!footer) return;
   footer.innerHTML = `
-    <strong>Rent Mierals</strong> · Arriendo De Maquinarias Mineras Ricardo Barahona ${new Date().getFullYear()}
+    <strong>Rent Mierals</strong> · Arriendo De Maquinarias Mineras<br>
+    Ricardo Barahona ${new Date().getFullYear()}
   `;
 }
 
