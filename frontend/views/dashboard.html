@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Rent Mierals</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header id="navbar"></header>
+
+  <main>
+    <div class="page-wrap">
+
+      <!-- Bienvenida -->
+      <div class="page-hero">
+        <div>
+          <h2>Hola, <span id="welcome-name">...</span> 👋</h2>
+          <p style="color:var(--silver);margin-top:.3rem">Panel de control del sistema de arriendo</p>
+        </div>
+        <span class="role-badge" id="role-badge"></span>
+      </div>
+
+      <!-- Estadísticas -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">⚙</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-total">—</div>
+            <div class="stat-lbl">Total Equipos</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--success)">✔</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-disponibles" style="color:var(--success)">—</div>
+            <div class="stat-lbl">Disponibles</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--warning)">🔧</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-en-uso" style="color:var(--warning)">—</div>
+            <div class="stat-lbl">En Uso</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--danger)">⚠</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-mantenimiento" style="color:var(--danger)">—</div>
+            <div class="stat-lbl">Mantenimiento</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accesos rápidos -->
+      <div class="quick-section">
+        <div class="section-header">
+          <div class="section-title"><span>⚡</span> Accesos Rápidos</div>
+        </div>
+        <div class="quick-grid">
+          <a href="/catalogo" class="quick-card">
+            <div class="quick-icon">📋</div>
+            <div class="quick-title">Ver Catálogo</div>
+            <div class="quick-desc">Explora toda la maquinaria disponible</div>
+          </a>
+          <a href="/views/profile.html" class="quick-card">
+            <div class="quick-icon">👤</div>
+            <div class="quick-title">Mi Perfil</div>
+            <div class="quick-desc">Edita tu nombre y contraseña</div>
+          </a>
+          <a href="/" class="quick-card" id="quick-admin" style="display:none">
+            <div class="quick-icon">🛠</div>
+            <div class="quick-title">Panel Admin</div>
+            <div class="quick-desc">Gestión de usuarios del sistema</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Tabla resumen de categorías -->
+      <div class="section-header" style="margin-top:2rem">
+        <div class="section-title"><span>📊</span> Equipos por Categoría</div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="cat-table">
+          <thead>
+            <tr><th>Categoría</th><th>Cantidad</th><th>Disponibles</th></tr>
+          </thead>
+          <tbody id="cat-tbody">
+            <tr><td colspan="3" style="text-align:center;color:var(--silver)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Reservas -->
+      <div class="section-header" style="margin-top:2rem">
+        <div class="section-title"><span>📅</span> <span id="reservas-title">Mis Reservas</span></div>
+        <button class="btn btn-outline btn-sm" onclick="loadReservas()">↻ Actualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="reservas-table">
+          <thead>
+            <tr id="reservas-thead-row">
+              <th>Equipo</th><th>Desde</th><th>Hasta</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="reservas-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--silver)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </main>
+
+  <footer></footer>
+
+  <div id="alert-container"></div>
+  <script src="/js/main.js"></script>
+  <script>
+    (async () => {
+      const user = await requireSession();
+      if (!user) return;
+
+      document.getElementById('welcome-name').textContent = user.nombre;
+
+      const badge = document.getElementById('role-badge');
+      badge.textContent = user.rol === 'admin' ? '⭐ Administrador' : '👷 Usuario';
+      badge.style.cssText = `background:${user.rol === 'admin' ? 'var(--gold)' : 'var(--steel)'};
+        color:${user.rol === 'admin' ? 'var(--coal)' : 'var(--light)'};
+        font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2px;
+        text-transform:uppercase;padding:4px 12px;font-weight:700`;
+
+      if (user.rol === 'admin') {
+        const qa = document.getElementById('quick-admin');
+        if (qa) { qa.style.display = ''; qa.href = '/views/admin.html'; }
+        document.getElementById('reservas-title').textContent = 'Todas las Reservas';
+      }
+
+      // Cargar estadísticas
+      try {
+        const data = await apiFetch('/maquinaria');
+        const equipos = data.data;
+        document.getElementById('stat-total').textContent = equipos.length;
+        document.getElementById('stat-disponibles').textContent = equipos.filter(e => e.estado === 'Disponible').length;
+        document.getElementById('stat-en-uso').textContent = equipos.filter(e => e.estado === 'En uso').length;
+        document.getElementById('stat-mantenimiento').textContent = equipos.filter(e => e.estado === 'Mantenimiento').length;
+
+        // Tabla por categoría
+        const catMap = {};
+        equipos.forEach(e => {
+          if (!catMap[e.categoria]) catMap[e.categoria] = { total: 0, disponibles: 0 };
+          catMap[e.categoria].total++;
+          if (e.estado === 'Disponible') catMap[e.categoria].disponibles++;
+        });
+        const tbody = document.getElementById('cat-tbody');
+        tbody.innerHTML = Object.entries(catMap).map(([cat, v]) => `
+          <tr>
+            <td>${cat}</td>
+            <td>${v.total}</td>
+            <td style="color:var(--success)">${v.disponibles}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        showAlert('Error al cargar estadísticas', 'error');
+      }
+
+      window.loadReservas = async function loadReservas() {
+        const tbody = document.getElementById('reservas-tbody');
+        const cols = user.rol === 'admin' ? 6 : 5;
+
+        // Encabezado: el admin además ve quién reservó
+        const theadRow = document.getElementById('reservas-thead-row');
+        theadRow.innerHTML = (user.rol === 'admin' ? '<th>Usuario</th>' : '') +
+          '<th>Equipo</th><th>Desde</th><th>Hasta</th><th>Estado</th><th>Acciones</th>';
+
+        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--silver)">Cargando...</td></tr>`;
+        try {
+          const data = await apiFetch('/reservas');
+          const reservas = data.data;
+
+          if (reservas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--silver)">Sin reservas</td></tr>`;
+            return;
+          }
+
+          const estadoColor = { Pendiente: 'var(--warning)', Aprobada: 'var(--success)', Rechazada: 'var(--danger)', Cancelada: 'var(--silver)' };
+
+          tbody.innerHTML = reservas.map(r => `
+            <tr>
+              ${user.rol === 'admin' ? `<td>${r.usuarioNombre}</td>` : ''}
+              <td>${r.maquinariaNombre}</td>
+              <td>${r.fecha_inicio}</td>
+              <td>${r.fecha_fin}</td>
+              <td style="color:${estadoColor[r.estado] || 'var(--silver)'}">${r.estado}</td>
+              <td style="display:flex;gap:.4rem;flex-wrap:wrap">
+                ${user.rol === 'admin' && r.estado === 'Pendiente' ? `
+                  <button class="btn btn-primary btn-sm" onclick="cambiarEstadoReserva(${r.id}, 'Aprobada')">APROBAR</button>
+                  <button class="btn btn-outline btn-sm" onclick="cambiarEstadoReserva(${r.id}, 'Rechazada')">RECHAZAR</button>
+                ` : ''}
+                <button class="btn btn-danger btn-sm" onclick="eliminarReserva(${r.id})">✕</button>
+              </td>
+            </tr>
+          `).join('');
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--danger)">Error al cargar reservas</td></tr>`;
+        }
+      };
+
+      window.cambiarEstadoReserva = async function cambiarEstadoReserva(id, estado) {
+        try {
+          await apiFetch(`/reservas/${id}/estado`, { method: 'PUT', body: JSON.stringify({ estado }) });
+          showAlert(`Reserva ${estado.toLowerCase()} ✓`, 'success');
+          loadReservas();
+        } catch (e) {
+          showAlert('Error al actualizar la reserva: ' + e.message, 'error');
+        }
+      };
+
+      window.eliminarReserva = async function eliminarReserva(id) {
+        try {
+          await apiFetch(`/reservas/${id}`, { method: 'DELETE' });
+          showAlert('Reserva eliminada ✓', 'success');
+          loadReservas();
+        } catch (e) {
+          showAlert('Error al eliminar la reserva: ' + e.message, 'error');
+        }
+      };
+
+      await loadReservas();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Perfil | Rent Mierals</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header id="navbar"></header>
+
+  <main>
+    <div class="page-wrap" style="max-width:700px">
+
+      <div class="page-hero">
+        <div>
+          <h2>👤 Mi Perfil</h2>
+          <p style="color:var(--silver);margin-top:.3rem">Actualiza tus datos personales</p>
+        </div>
+      </div>
+
+      <!-- Info actual -->
+      <div class="profile-info-card">
+        <div class="profile-avatar">👷</div>
+        <div>
+          <div class="profile-name" id="profile-name">—</div>
+          <div class="profile-email" id="profile-email">—</div>
+          <div class="profile-rol" id="profile-rol">—</div>
+        </div>
+      </div>
+
+      <!-- Formulario cambiar nombre -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-title"><span>✏</span> Cambiar Nombre</div>
+        </div>
+        <form id="form-nombre">
+          <div class="form-group">
+            <label>Nuevo nombre</label>
+            <input type="text" id="input-nombre" placeholder="Tu nombre completo">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-nombre">ACTUALIZAR NOMBRE</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Formulario cambiar contraseña -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-title"><span>🔒</span> Cambiar Contraseña</div>
+        </div>
+        <form id="form-password">
+          <div class="form-group">
+            <label>Contraseña actual</label>
+            <input type="password" id="input-pass-actual" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label>Nueva contraseña</label>
+            <input type="password" id="input-pass-nueva" placeholder="Mín. 6 caracteres">
+          </div>
+          <div class="form-group">
+            <label>Confirmar nueva contraseña</label>
+            <input type="password" id="input-pass-confirm" placeholder="Repite la nueva contraseña">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-pass">CAMBIAR CONTRASEÑA</button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </main>
+
+  <footer></footer>
+
+  <div id="alert-container"></div>
+  <script src="/js/main.js"></script>
+  <script>
+    let currentUser = null;
+
+    (async () => {
+      currentUser = await requireSession();
+      if (!currentUser) return;
+
+      document.getElementById('profile-name').textContent  = currentUser.nombre;
+      document.getElementById('profile-email').textContent = currentUser.email;
+      document.getElementById('input-nombre').value        = currentUser.nombre;
+      const rolEl = document.getElementById('profile-rol');
+      rolEl.textContent = currentUser.rol === 'admin' ? '⭐ Administrador' : '👷 Usuario';
+      rolEl.style.color = currentUser.rol === 'admin' ? 'var(--gold)' : 'var(--silver)';
+    })();
+
+    // Cambiar nombre
+    document.getElementById('form-nombre').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('input-nombre').value.trim();
+      if (!nombre) return showAlert('Ingresa un nombre', 'warning');
+      const btn = document.getElementById('btn-nombre');
+      btn.disabled = true; btn.textContent = 'GUARDANDO...';
+      try {
+        const res = await apiFetch('/auth/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ nombre }),
+        });
+        currentUser = res.user;
+        document.getElementById('profile-name').textContent = currentUser.nombre;
+        showAlert('Nombre actualizado ✓', 'success');
+        // Refrescar navbar con el nuevo nombre
+        document.getElementById('navbar').innerHTML = '';
+        renderNavbar();
+      } catch (err) { showAlert(err.message, 'error'); }
+      finally { btn.disabled = false; btn.textContent = 'ACTUALIZAR NOMBRE'; }
+    });
+
+    // Cambiar contraseña
+    document.getElementById('form-password').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const actual   = document.getElementById('input-pass-actual').value;
+      const nueva    = document.getElementById('input-pass-nueva').value;
+      const confirm  = document.getElementById('input-pass-confirm').value;
+      if (!actual || !nueva || !confirm) return showAlert('Completa todos los campos', 'warning');
+      if (nueva.length < 6) return showAlert('La nueva contraseña debe tener al menos 6 caracteres', 'warning');
+      if (nueva !== confirm) return showAlert('Las contraseñas nuevas no coinciden', 'warning');
+      const btn = document.getElementById('btn-pass');
+      btn.disabled = true; btn.textContent = 'CAMBIANDO...';
+      try {
+        await apiFetch('/auth/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ passwordActual: actual, passwordNueva: nueva }),
+        });
+        showAlert('Contraseña actualizada ✓', 'success');
+        document.getElementById('form-password').reset();
+      } catch (err) { showAlert(err.message, 'error'); }
+      finally { btn.disabled = false; btn.textContent = 'CAMBIAR CONTRASEÑA'; }
+    });
+  </script>
+</body>
+</html>

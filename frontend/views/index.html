@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rent Mierals — Maquinaria de Minería</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- El navbar lo dibuja main.js según si hay sesión o no -->
+  <header id="navbar"></header>
+
+  <!-- ── Hero ── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <h2>Catálogo de <span>Maquinaria</span><br>Pesada Minera</h2>
+        <p>Excavadoras · Camiones · Perforadoras · Grúas · Bulldozers</p>
+      </div>
+      <div style="display:flex;gap:.8rem;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btn-add-equipo" onclick="openCreate()" style="display:none">+ AGREGAR EQUIPO</button>
+        <div class="header-stats" style="display:flex;gap:2rem;align-items:center">
+          <div class="stat-badge">
+            <div class="num" id="stat-total">—</div>
+            <div class="lbl">Total</div>
+          </div>
+          <div class="stat-badge">
+            <div class="num" id="stat-disponibles">—</div>
+            <div class="lbl">Disponibles</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Controls ── -->
+  <div class="controls-bar">
+    <div class="controls-inner">
+      <div class="search-box">
+        <span class="icon">🔍</span>
+        <input id="search-input" type="text" placeholder="Buscar por nombre, marca o modelo...">
+      </div>
+      <select id="filter-categoria" class="filter-select">
+        <option value="">Todas las categorías</option>
+      </select>
+      <select id="filter-estado" class="filter-select">
+        <option value="">Todos los estados</option>
+        <option value="Disponible">Disponible</option>
+        <option value="En uso">En uso</option>
+        <option value="Mantenimiento">Mantenimiento</option>
+      </select>
+      <button class="btn btn-outline" id="btn-clear">✕ Limpiar</button>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <main>
+    <div class="section-header">
+      <div class="section-title"><span>⚙</span> Equipos Registrados</div>
+      <span class="count-badge"><span id="result-count">0</span> resultados</span>
+    </div>
+    <div class="grid" id="machinery-grid">
+      <div class="loading"><div class="spinner"></div>Cargando maquinaria...</div>
+    </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer></footer>
+
+  <!-- ══ Modal: Detalle ══ -->
+  <div class="modal-overlay" id="modal-detail">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="detail-title">Detalle</h3>
+        <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+    </div>
+  </div>
+
+  <!-- ══ Modal: Crear / Editar ══ -->
+  <div class="modal-overlay" id="modal-form">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="form-modal-title">AGREGAR MAQUINARIA</h3>
+        <button class="modal-close" onclick="closeModal('modal-form')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="item-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Nombre del equipo <span class="req">*</span></label>
+              <input id="form-nombre" type="text" placeholder="Ej: Excavadora CAT 390F">
+              <span class="form-error" id="err-nombre"></span>
+            </div>
+            <div class="form-group">
+              <label>Categoría <span class="req">*</span></label>
+              <select id="form-categoria"><option value="">Seleccionar...</option></select>
+              <span class="form-error" id="err-categoria"></span>
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <select id="form-estado">
+                <option value="Disponible">Disponible</option>
+                <option value="En uso">En uso</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Marca <span class="req">*</span></label>
+              <input id="form-marca" type="text" placeholder="Ej: Caterpillar">
+              <span class="form-error" id="err-marca"></span>
+            </div>
+            <div class="form-group">
+              <label>Modelo <span class="req">*</span></label>
+              <input id="form-modelo" type="text" placeholder="Ej: 390F">
+              <span class="form-error" id="err-modelo"></span>
+            </div>
+            <div class="form-group">
+              <label>Año de fabricación</label>
+              <input id="form-año" type="number" placeholder="Ej: 2022" min="1900" max="2026">
+            </div>
+            <div class="form-group">
+              <label>Precio arriendo (CLP/día)</label>
+              <input id="form-precio" type="number" placeholder="Ej: 4500000" min="0">
+            </div>
+            <div class="form-group">
+              <label>Capacidad</label>
+              <input id="form-capacidad" type="text" placeholder="Ej: 90 toneladas">
+            </div>
+            <div class="form-group">
+              <label>Potencia</label>
+              <input id="form-potencia" type="text" placeholder="Ej: 575 HP">
+            </div>
+            <div class="form-group full">
+              <label>Descripción <span class="req">*</span></label>
+              <textarea id="form-descripcion" placeholder="Describe las características principales del equipo..."></textarea>
+              <span class="form-error" id="err-descripcion"></span>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modal-form')">CANCELAR</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit">GUARDAR</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Modal: Confirmar eliminar ══ -->
+  <div class="modal-overlay" id="modal-confirm">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>CONFIRMAR ELIMINACIÓN</h3>
+        <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:1.5rem;color:var(--silver)">
+          ¿Está seguro que desea eliminar
+          <strong style="color:var(--white)" id="delete-name"></strong>?
+          Esta acción no se puede deshacer.
+        </p>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeModal('modal-confirm')">CANCELAR</button>
+          <button class="btn btn-danger" id="btn-confirm-delete">ELIMINAR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Modal: Reservar equipo ══ -->
+  <div class="modal-overlay" id="modal-reserva">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <h3>RESERVAR EQUIPO</h3>
+        <button class="modal-close" onclick="closeModal('modal-reserva')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:1rem;color:var(--silver)">
+          Estás reservando: <strong style="color:var(--white)" id="reserva-nombre"></strong>
+        </p>
+        <form id="reserva-form" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Fecha de inicio <span class="req">*</span></label>
+              <input id="reserva-inicio" type="date">
+              <span class="form-error" id="err-reserva-inicio"></span>
+            </div>
+            <div class="form-group">
+              <label>Fecha de término <span class="req">*</span></label>
+              <input id="reserva-fin" type="date">
+              <span class="form-error" id="err-reserva-fin"></span>
+            </div>
+            <div class="form-group full">
+              <label>Notas (opcional)</label>
+              <textarea id="reserva-notas" placeholder="Indicaciones adicionales para la reserva..."></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modal-reserva')">CANCELAR</button>
+            <button type="submit" class="btn btn-primary" id="btn-reserva-submit">CONFIRMAR RESERVA</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+  <div id="alert-container"></div>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/script.js"></script>
+</body>
+</html>

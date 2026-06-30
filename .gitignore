@@ -1,0 +1,20 @@
+﻿# Dependencias
+node_modules/
+
+# Variables de entorno (credenciales — NUNCA subir)
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Archivos de build
+dist/
+build/

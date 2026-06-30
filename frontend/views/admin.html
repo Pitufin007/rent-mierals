@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin | Rent Mierals</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header id="navbar"></header>
+
+  <main>
+    <div class="page-wrap">
+
+      <div class="page-hero">
+        <div>
+          <h2>🛠 Panel Administrador</h2>
+          <p style="color:var(--silver);margin-top:.3rem">Gestión de usuarios del sistema</p>
+        </div>
+        <span style="background:var(--gold);color:var(--coal);font-family:'Barlow Condensed',sans-serif;
+          font-size:.8rem;letter-spacing:2px;text-transform:uppercase;padding:4px 14px;font-weight:700">
+          ⭐ ADMIN
+        </span>
+      </div>
+
+      <!-- Estadísticas rápidas -->
+      <div class="stats-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-usuarios">—</div>
+            <div class="stat-lbl">Total Usuarios</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--gold)">⭐</div>
+          <div class="stat-info">
+            <div class="stat-num" id="stat-admins" style="color:var(--gold)">—</div>
+            <div class="stat-lbl">Administradores</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de usuarios -->
+      <div class="section-header" style="margin-top:2rem">
+        <div class="section-title"><span>👥</span> Usuarios Registrados</div>
+        <button class="btn btn-outline btn-sm" onclick="loadUsers()">↻ Actualizar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--silver)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal cambiar rol -->
+  <div class="modal-overlay" id="modal-rol">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>CAMBIAR ROL</h3>
+        <button class="modal-close" onclick="closeRolModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--silver);margin-bottom:1.2rem">
+          Usuario: <strong style="color:var(--white)" id="modal-user-name"></strong>
+        </p>
+        <div class="form-group">
+          <label>Nuevo rol</label>
+          <select id="modal-rol-select" class="filter-select" style="width:100%">
+            <option value="usuario">👷 Usuario</option>
+            <option value="admin">⭐ Administrador</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="closeRolModal()">CANCELAR</button>
+          <button class="btn btn-primary" id="btn-save-rol">GUARDAR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer></footer>
+
+  <div id="alert-container"></div>
+  <script src="/js/main.js"></script>
+  <script>
+    let currentAdmin = null;
+    let selectedUserId = null;
+
+    (async () => {
+      currentAdmin = await requireAdmin();
+      if (!currentAdmin) return;
+      await loadUsers();
+    })();
+
+    async function loadUsers() {
+      try {
+        const data = await apiFetch('/auth/users');
+        const users = data.users;
+        document.getElementById('stat-usuarios').textContent = users.length;
+        document.getElementById('stat-admins').textContent = users.filter(u => u.rol === 'admin').length;
+
+        const tbody = document.getElementById('users-tbody');
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td style="color:var(--silver)">#${u.id}</td>
+            <td style="color:var(--white);font-weight:600">${u.nombre}</td>
+            <td style="color:var(--silver)">${u.email}</td>
+            <td>
+              <span style="background:${u.rol === 'admin' ? 'var(--gold)' : 'var(--steel)'};
+                color:${u.rol === 'admin' ? 'var(--coal)' : 'var(--light)'};
+                font-family:'Barlow Condensed',sans-serif;font-size:.7rem;
+                letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;font-weight:700">
+                ${u.rol === 'admin' ? '⭐ Admin' : '👷 Usuario'}
+              </span>
+            </td>
+            <td>
+              ${u.id !== currentAdmin.id
+                ? `<button class="btn btn-outline btn-sm" onclick="openRolModal(${u.id}, '${u.nombre}', '${u.rol}')">
+                     Cambiar Rol
+                   </button>
+                   <button class="btn btn-danger btn-sm" style="margin-left:.4rem" onclick="deleteUser(${u.id}, '${u.nombre}')">
+                     ✕
+                   </button>`
+                : '<span style="color:var(--silver);font-size:.8rem">(tú)</span>'
+              }
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showAlert('Error al cargar usuarios: ' + err.message, 'error');
+      }
+    }
+
+    function openRolModal(id, nombre, rolActual) {
+      selectedUserId = id;
+      document.getElementById('modal-user-name').textContent = nombre;
+      document.getElementById('modal-rol-select').value = rolActual;
+      document.getElementById('modal-rol').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeRolModal() {
+      document.getElementById('modal-rol').classList.remove('active');
+      document.body.style.overflow = '';
+      selectedUserId = null;
+    }
+
+    document.getElementById('btn-save-rol').addEventListener('click', async () => {
+      if (!selectedUserId) return;
+      const rol = document.getElementById('modal-rol-select').value;
+      try {
+        await apiFetch(`/auth/users/${selectedUserId}/rol`, {
+          method: 'PUT',
+          body: JSON.stringify({ rol }),
+        });
+        showAlert('Rol actualizado ✓', 'success');
+        closeRolModal();
+        await loadUsers();
+      } catch (err) { showAlert(err.message, 'error'); }
+    });
+
+    async function deleteUser(id, nombre) {
+      if (!confirm(`¿Eliminar al usuario "${nombre}"? Esta acción no se puede deshacer.`)) return;
+      try {
+        await apiFetch(`/auth/users/${id}`, { method: 'DELETE' });
+        showAlert(`Usuario "${nombre}" eliminado ✓`, 'success');
+        await loadUsers();
+      } catch (err) { showAlert(err.message, 'error'); }
+    }
+
+    // Cerrar modal al click fuera
+    document.addEventListener('click', e => {
+      if (e.target.classList.contains('modal-overlay')) closeRolModal();
+    });
+  </script>
+</body>
+</html>

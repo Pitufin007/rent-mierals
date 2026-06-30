@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrarse | Rent Mierals</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header id="navbar"></header>
+
+  <main>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo-icon" style="margin:0 auto 1rem">⛏</div>
+          <h2>CREAR CUENTA</h2>
+          <p>Únete al sistema de arriendo</p>
+        </div>
+
+        <form id="register-form" novalidate>
+          <div class="form-group">
+            <label>Nombre completo <span class="req">*</span></label>
+            <input type="text" id="nombre" placeholder="Ej: Juan Pérez" required>
+          </div>
+          <div class="form-group">
+            <label>Correo electrónico <span class="req">*</span></label>
+            <input type="email" id="email" placeholder="tu@correo.com" required>
+          </div>
+          <div class="form-group">
+            <label>Contraseña <span class="req">*</span></label>
+            <input type="password" id="password" placeholder="Mín. 6 caracteres" required>
+          </div>
+          <div class="form-group">
+            <label>Confirmar contraseña <span class="req">*</span></label>
+            <input type="password" id="confirm-password" placeholder="Repite la contraseña" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" id="btn-submit">CREAR CUENTA</button>
+        </form>
+
+        <p class="auth-footer-link">
+          ¿Ya tienes cuenta? <a href="/views/login.html">Inicia sesión</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer></footer>
+
+  <div id="alert-container"></div>
+  <script src="/js/main.js"></script>
+  <script src="/js/auth.js"></script>
+</body>
+</html>

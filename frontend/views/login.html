@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión | Rent Mierals</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin-top: 0.5rem;
+      background: #fff;
+      color: #3c4043;
+      border: 1.5px solid #dadce0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-google:hover {
+      background: #f8f8f8;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+    }
+    .btn-google img {
+      width: 20px;
+      height: 20px;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.2rem 0;
+      color: #888;
+      font-size: 0.85rem;
+    }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #ddd;
+    }
+  </style>
+</head>
+<body>
+
+  <header id="navbar"></header>
+
+  <main>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo-icon" style="margin:0 auto 1rem">⛏</div>
+          <h2>INICIAR SESIÓN</h2>
+          <p>Accede al sistema de arriendo</p>
+        </div>
+
+        <!-- Botón Google -->
+        <a href="/api/auth/google" class="btn-google">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+          Continuar con Google
+        </a>
+
+        <div class="divider">o ingresa con tu correo</div>
+
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label>Correo electrónico</label>
+            <input type="email" id="email" placeholder="tu@correo.com" required>
+          </div>
+          <div class="form-group">
+            <label>Contraseña</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" id="btn-submit">INGRESAR</button>
+        </form>
+
+        <p class="auth-footer-link">
+          ¿No tienes cuenta? <a href="/views/register.html">Regístrate aquí</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer></footer>
+
+  <div id="alert-container"></div>
+  <script src="/js/main.js"></script>
+  <script src="/js/auth.js"></script>
+</body>
+</html>
