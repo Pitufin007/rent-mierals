@@ -174,9 +174,13 @@ function renderFooter() {
   footer.innerHTML = `
     <strong>Rent Mierals</strong> · Arriendo De Maquinarias Mineras<br>
     Ricardo Barahona ${new Date().getFullYear()}
+    <p class="footer-legal" style="font-size:0.8rem;opacity:0.65;margin-top:0.75rem;line-height:1.4;">
+      Las marcas, logotipos y modelos mencionados en este sitio son propiedad de
+      sus respectivos dueños. Rent Mierals es una empresa de arriendo independiente
+      y no representa ni está afiliada oficialmente a ningún fabricante.
+    </p>
   `;
 }
-
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar();
   renderFooter();
