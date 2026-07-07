@@ -15,6 +15,7 @@ const ReservaModel = require('../models/reservaModel');
 const MaquinariaModel = require('../models/itemModel');
 const AgendaModel = require('../models/agendaModel');
 const UserModel = require('../models/userModel');
+const { notificarEventoReserva } = require('../services/telegramNotifier');
 
 // Días (inclusivos) entre dos fechas YYYY-MM-DD. 10→15 = 6 días.
 function diasEntre(inicio, fin) {
@@ -107,6 +108,9 @@ const ReservaController = {
         telefono,
       });
 
+      // Avisar al admin por Telegram (no bloquea la respuesta).
+      notificarEventoReserva('creada', nueva);
+
       res.status(201).json({ success: true, message: 'Reserva creada exitosamente', data: nueva });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error al crear la reserva', error: error.message });
@@ -167,12 +171,17 @@ const ReservaController = {
           });
         }
 
+        notificarEventoReserva('aprobada', actualizada || reserva);
         return res.status(200).json({ success: true, message: 'Reserva aprobada y agendada', data: actualizada });
       }
 
       // ── RECHAZAR / CANCELAR / volver a PENDIENTE → liberar la agenda ──
       const actualizada = await ReservaModel.updateEstado(id, estado);
       await AgendaModel.deleteByReserva(id);
+
+      // Avisar al admin por Telegram según el nuevo estado.
+      const eventoPorEstado = { Rechazada: 'rechazada', Cancelada: 'cancelada' };
+      if (eventoPorEstado[estado]) notificarEventoReserva(eventoPorEstado[estado], actualizada || reserva);
 
       res.status(200).json({ success: true, message: 'Estado de la reserva actualizado', data: actualizada });
     } catch (error) {
@@ -197,6 +206,10 @@ const ReservaController = {
 
       await AgendaModel.deleteByReserva(id); // liberar agenda (por si estaba agendada)
       await ReservaModel.delete(id);
+
+      // Avisar al admin por Telegram.
+      notificarEventoReserva('eliminada', reserva);
+
       res.status(200).json({ success: true, message: 'Reserva eliminada exitosamente', data: reserva });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error al eliminar la reserva', error: error.message });
