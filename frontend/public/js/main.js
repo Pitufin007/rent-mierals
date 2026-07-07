@@ -5,6 +5,21 @@
 
 const API_URL = '/api';
 
+// ── escapeHtml: neutraliza HTML en datos del usuario antes de meterlos
+// en innerHTML (previene XSS almacenado/reflejado). Usar SIEMPRE que se
+// interpole texto que venga de la base o del usuario dentro de plantillas.
+function escapeHtml(v) {
+  if (v == null) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+window.escapeHtml = escapeHtml;
+
+
 // ── apiFetch: wrapper de fetch con JSON y cookies ──
 async function apiFetch(path, options = {}) {
   const res = await fetch(API_URL + path, {

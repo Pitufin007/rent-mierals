@@ -181,17 +181,38 @@
         <p style="margin-bottom:1rem;color:var(--silver)">
           Estás reservando: <strong style="color:var(--white)" id="reserva-nombre"></strong>
         </p>
+
+        <!-- Aviso de días ya ocupados -->
+        <div id="reserva-ocupadas" class="reserva-ocupadas" style="display:none"></div>
+
+        <!-- Calendario de selección de fechas -->
+        <div class="cal" id="reserva-cal">
+          <div class="cal-head">
+            <button type="button" class="cal-nav" id="cal-prev" aria-label="Mes anterior">‹</button>
+            <span class="cal-title" id="cal-title">—</span>
+            <button type="button" class="cal-nav" id="cal-next" aria-label="Mes siguiente">›</button>
+          </div>
+          <div class="cal-grid cal-dow">
+            <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+          </div>
+          <div class="cal-grid" id="cal-days"></div>
+          <div class="cal-legend">
+            <span><i class="cal-dot libre"></i> Disponible</span>
+            <span><i class="cal-dot sel"></i> Tu selección</span>
+            <span><i class="cal-dot ocup"></i> Ocupado</span>
+          </div>
+        </div>
+
+        <!-- Resumen de la selección -->
+        <div class="reserva-summary" id="reserva-summary">
+          Selecciona la fecha de inicio y término en el calendario.
+        </div>
+
         <form id="reserva-form" novalidate>
           <div class="form-grid">
-            <div class="form-group">
-              <label>Fecha de inicio <span class="req">*</span></label>
-              <input id="reserva-inicio" type="date">
-              <span class="form-error" id="err-reserva-inicio"></span>
-            </div>
-            <div class="form-group">
-              <label>Fecha de término <span class="req">*</span></label>
-              <input id="reserva-fin" type="date">
-              <span class="form-error" id="err-reserva-fin"></span>
+            <div class="form-group full">
+              <label>Teléfono de contacto (opcional)</label>
+              <input id="reserva-telefono" type="tel" placeholder="+56 9 1234 5678">
             </div>
             <div class="form-group full">
               <label>Notas (opcional)</label>
@@ -200,7 +221,7 @@
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-outline" onclick="closeModal('modal-reserva')">CANCELAR</button>
-            <button type="submit" class="btn btn-primary" id="btn-reserva-submit">CONFIRMAR RESERVA</button>
+            <button type="submit" class="btn btn-primary" id="btn-reserva-submit" disabled>CONFIRMAR RESERVA</button>
           </div>
         </form>
       </div>

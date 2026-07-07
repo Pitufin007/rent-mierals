@@ -63,20 +63,20 @@ function renderCards(lista) {
   grid.innerHTML = lista.map((m, i) => `
     <article class="card" style="animation-delay:${i * 0.05}s">
       <img class="card-img"
-           src="${m.imagen}"
-           alt="${m.nombre}"
+           src="${encodeURI(m.imagen || '')}"
+           alt="${escapeHtml(m.nombre)}"
            onerror="this.src='https://via.placeholder.com/400x250/eef1f4/5b6b7a?text=SIN+IMAGEN'">
-      <span class="card-estado ${estadoClass(m.estado)}">${m.estado}</span>
+      <span class="card-estado ${estadoClass(m.estado)}">${escapeHtml(m.estado)}</span>
       <div class="card-body">
-        <div class="card-cat">${m.categoria}</div>
-        <h3 class="card-title">${m.nombre}</h3>
+        <div class="card-cat">${escapeHtml(m.categoria)}</div>
+        <h3 class="card-title">${escapeHtml(m.nombre)}</h3>
         <div class="card-meta">
-          <span data-label="Marca">${m.marca}</span>
-          <span data-label="Modelo">${m.modelo}</span>
-          <span data-label="Año">${m.año}</span>
-          <span data-label="Potencia">${m.potencia || '—'}</span>
+          <span data-label="Marca">${escapeHtml(m.marca)}</span>
+          <span data-label="Modelo">${escapeHtml(m.modelo)}</span>
+          <span data-label="Año">${escapeHtml(m.año)}</span>
+          <span data-label="Potencia">${escapeHtml(m.potencia || '—')}</span>
         </div>
-        <p class="card-desc">${m.descripcion}</p>
+        <p class="card-desc">${escapeHtml(m.descripcion)}</p>
         <div class="card-footer">
           <div class="price">${formatPrice(m.precio_arriendo_dia)} <span>/ día</span></div>
           <div class="card-actions">
@@ -189,16 +189,16 @@ async function openDetail(id) {
           <div style="font-family:'Barlow Condensed';font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--silver)">Arriendo diario</div>
           <div class="price">${formatPrice(m.precio_arriendo_dia)} <span>/ día</span></div>
         </div>
-        <span class="card-estado ${estadoClass(m.estado)}" style="position:static">${m.estado}</span>
+        <span class="card-estado ${estadoClass(m.estado)}" style="position:static">${escapeHtml(m.estado)}</span>
       </div>
-      <div class="detail-desc">${m.descripcion}</div>
+      <div class="detail-desc">${escapeHtml(m.descripcion)}</div>
       <div class="detail-grid">
-        <div class="detail-item"><label>Categoría</label><div class="val">${m.categoria}</div></div>
-        <div class="detail-item"><label>Marca</label><div class="val">${m.marca}</div></div>
-        <div class="detail-item"><label>Modelo</label><div class="val">${m.modelo}</div></div>
-        <div class="detail-item"><label>Año</label><div class="val">${m.año}</div></div>
-        <div class="detail-item"><label>Capacidad</label><div class="val">${m.capacidad}</div></div>
-        <div class="detail-item"><label>Potencia</label><div class="val">${m.potencia}</div></div>
+        <div class="detail-item"><label>Categoría</label><div class="val">${escapeHtml(m.categoria)}</div></div>
+        <div class="detail-item"><label>Marca</label><div class="val">${escapeHtml(m.marca)}</div></div>
+        <div class="detail-item"><label>Modelo</label><div class="val">${escapeHtml(m.modelo)}</div></div>
+        <div class="detail-item"><label>Año</label><div class="val">${escapeHtml(m.año)}</div></div>
+        <div class="detail-item"><label>Capacidad</label><div class="val">${escapeHtml(m.capacidad)}</div></div>
+        <div class="detail-item"><label>Potencia</label><div class="val">${escapeHtml(m.potencia)}</div></div>
       </div>
       <div style="display:flex;gap:.7rem;justify-content:flex-end">
         ${detailActionsHtml(m)}
@@ -367,41 +367,227 @@ $('#btn-clear').addEventListener('click', () => {
   loadData();
 });
 
-// ── Reservar equipo (usuario normal) ────────────────────────────
-let reservaMaquinariaId = null;
+// ── Reservar equipo — calendario con bloqueo de fechas ──────────
+//
+// El usuario elige inicio y término haciendo clic en un calendario.
+// Los días que ya están agendados (aprobados) para esa máquina se
+// pintan como "ocupados" y no se pueden seleccionar. Además se
+// muestra un aviso con los rangos ocupados. La disponibilidad se
+// pide al backend: GET /reservas/disponibilidad/:maquinariaId.
 
-function openReserva(id, nombre) {
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+const reserva = {
+  maquinariaId: null,
+  precioDia: 0,
+  ocupadas: [],          // [{ini: Date, fin: Date, cliente}]
+  viewY: 0, viewM: 0,    // mes visible en el calendario
+  inicio: null, fin: null,
+};
+
+// Fecha local (medianoche) a partir de 'YYYY-MM-DD' o ISO. Evita el
+// corrimiento de un día que produce new Date('YYYY-MM-DD') en zonas UTC-.
+function toLocalDate(v) {
+  if (v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  const s = String(v).slice(0, 10);
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function ymd(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function fmtFecha(date) {
+  return `${date.getDate()} ${MESES_CORTO[date.getMonth()]} ${date.getFullYear()}`;
+}
+function hoyLocal() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+function diasInclusivos(a, b) {
+  return Math.round((b - a) / 86400000) + 1;
+}
+// ¿La fecha cae dentro de algún rango ocupado (inclusive)?
+function estaOcupado(date) {
+  return reserva.ocupadas.some(r => date >= r.ini && date <= r.fin);
+}
+// ¿El rango [a, b] pisa algún día ocupado?
+function rangoPisaOcupado(a, b) {
+  return reserva.ocupadas.some(r => a <= r.fin && b >= r.ini);
+}
+
+async function openReserva(id, nombre) {
   if (!currentUser) {
     window.location.href = '/views/login.html';
     return;
   }
-  reservaMaquinariaId = id;
+  reserva.maquinariaId = id;
+  reserva.inicio = null;
+  reserva.fin = null;
+  reserva.ocupadas = [];
+  reserva.precioDia = 0;
+
   $('#reserva-nombre').textContent = nombre;
-  $('#reserva-form').reset();
-  $$('#reserva-form .form-error').forEach(e => e.textContent = '');
-  const today = new Date().toISOString().split('T')[0];
-  $('#reserva-inicio').min = today;
-  $('#reserva-fin').min = today;
+  $('#reserva-telefono').value = '';
+  $('#reserva-notas').value = '';
+  $('#btn-reserva-submit').disabled = true;
+
+  const h = hoyLocal();
+  reserva.viewY = h.getFullYear();
+  reserva.viewM = h.getMonth();
+
+  $('#cal-days').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--silver);padding:1rem">Cargando disponibilidad…</div>';
+  $('#reserva-ocupadas').style.display = 'none';
+  updateReservaSummary();
   openModal('modal-reserva');
+
+  try {
+    const data = await apiFetch(`/reservas/disponibilidad/${id}`);
+    reserva.precioDia = Number(data.precioDia) || 0;
+    reserva.ocupadas = (data.ocupadas || []).map(o => ({
+      ini: toLocalDate(o.fecha_inicio),
+      fin: toLocalDate(o.fecha_fin),
+      cliente: o.cliente,
+    }));
+  } catch (err) {
+    toast('No se pudo cargar la disponibilidad: ' + err.message, 'error');
+  }
+  renderOcupadas();
+  renderCalendar();
 }
+
+function renderOcupadas() {
+  const box = $('#reserva-ocupadas');
+  if (!reserva.ocupadas.length) { box.style.display = 'none'; return; }
+  const items = reserva.ocupadas
+    .slice()
+    .sort((a, b) => a.ini - b.ini)
+    .map(r => `<li>🔒 ${fmtFecha(r.ini)} → ${fmtFecha(r.fin)}</li>`)
+    .join('');
+  box.innerHTML = `<strong>Fechas ya reservadas para este equipo:</strong><ul>${items}</ul>`;
+  box.style.display = 'block';
+}
+
+function renderCalendar() {
+  $('#cal-title').textContent = `${MESES[reserva.viewM]} ${reserva.viewY}`;
+
+  const primero = new Date(reserva.viewY, reserva.viewM, 1);
+  const diasEnMes = new Date(reserva.viewY, reserva.viewM + 1, 0).getDate();
+  // getDay(): 0=Dom..6=Sáb. Queremos semana Lu..Do → offset con lunes=0.
+  const offset = (primero.getDay() + 6) % 7;
+  const hoy = hoyLocal();
+
+  let html = '';
+  for (let i = 0; i < offset; i++) html += '<span class="cal-day empty"></span>';
+
+  for (let d = 1; d <= diasEnMes; d++) {
+    const fecha = new Date(reserva.viewY, reserva.viewM, d);
+    const clases = ['cal-day'];
+    let clickable = true;
+
+    if (fecha < hoy) { clases.push('past'); clickable = false; }
+    else if (estaOcupado(fecha)) { clases.push('ocup'); clickable = false; }
+
+    if (reserva.inicio && reserva.fin && fecha >= reserva.inicio && fecha <= reserva.fin) clases.push('in-range');
+    if (reserva.inicio && +fecha === +reserva.inicio) clases.push('sel');
+    if (reserva.fin && +fecha === +reserva.fin) clases.push('sel');
+
+    const attr = clickable ? `onclick="onDayClick('${ymd(fecha)}')"` : '';
+    html += `<span class="${clases.join(' ')}" ${attr}>${d}</span>`;
+  }
+  $('#cal-days').innerHTML = html;
+
+  // Deshabilitar "mes anterior" si ya estamos en el mes actual
+  const prevBtn = $('#cal-prev');
+  const enMesActual = (reserva.viewY === hoy.getFullYear() && reserva.viewM === hoy.getMonth());
+  prevBtn.disabled = enMesActual;
+}
+
+function onDayClick(ymdStr) {
+  const fecha = toLocalDate(ymdStr);
+
+  if (!reserva.inicio || (reserva.inicio && reserva.fin)) {
+    // Empezar nueva selección
+    reserva.inicio = fecha;
+    reserva.fin = null;
+  } else if (fecha < reserva.inicio) {
+    // Clic antes del inicio → reinicia el inicio
+    reserva.inicio = fecha;
+    reserva.fin = null;
+  } else {
+    // Cerrar el rango, validando que no pise días ocupados
+    if (rangoPisaOcupado(reserva.inicio, fecha)) {
+      toast('El rango elegido incluye días ya reservados. Elige otro término.', 'error');
+      reserva.fin = null;
+    } else {
+      reserva.fin = fecha;
+    }
+  }
+  renderCalendar();
+  updateReservaSummary();
+}
+
+function updateReservaSummary() {
+  const box = $('#reserva-summary');
+  const btn = $('#btn-reserva-submit');
+
+  if (reserva.inicio && reserva.fin) {
+    const dias = diasInclusivos(reserva.inicio, reserva.fin);
+    const total = reserva.precioDia * dias;
+    box.innerHTML = `
+      <div><strong>Del ${fmtFecha(reserva.inicio)} al ${fmtFecha(reserva.fin)}</strong></div>
+      <div style="color:var(--silver);margin-top:.2rem">
+        ${dias} ${dias === 1 ? 'día' : 'días'}${reserva.precioDia ? ` · ${formatPrice(reserva.precioDia)}/día` : ''}
+        ${reserva.precioDia ? ` · Total estimado: <strong style="color:var(--gold)">${formatPrice(total)}</strong>` : ''}
+      </div>`;
+    btn.disabled = false;
+  } else if (reserva.inicio) {
+    box.innerHTML = `<div>Inicio: <strong>${fmtFecha(reserva.inicio)}</strong></div>
+      <div style="color:var(--silver);margin-top:.2rem">Ahora elige la fecha de término.</div>`;
+    btn.disabled = true;
+  } else {
+    box.textContent = 'Selecciona la fecha de inicio y término en el calendario.';
+    btn.disabled = true;
+  }
+}
+
+// Navegación de meses
+(function initCalNav() {
+  const prev = $('#cal-prev');
+  const next = $('#cal-next');
+  if (prev) prev.addEventListener('click', () => {
+    if (prev.disabled) return;
+    reserva.viewM--; if (reserva.viewM < 0) { reserva.viewM = 11; reserva.viewY--; }
+    renderCalendar();
+  });
+  if (next) next.addEventListener('click', () => {
+    reserva.viewM++; if (reserva.viewM > 11) { reserva.viewM = 0; reserva.viewY++; }
+    renderCalendar();
+  });
+})();
 
 const reservaFormEl = $('#reserva-form');
 if (reservaFormEl) {
   reservaFormEl.addEventListener('submit', async e => {
     e.preventDefault();
-    $$('#reserva-form .form-error').forEach(el => el.textContent = '');
 
-    const inicio = $('#reserva-inicio').value;
-    const fin = $('#reserva-fin').value;
+    if (!reserva.inicio || !reserva.fin) {
+      toast('Selecciona el rango de fechas en el calendario', 'error');
+      return;
+    }
+    // Última validación en cliente (el backend igual valida)
+    if (rangoPisaOcupado(reserva.inicio, reserva.fin)) {
+      toast('Esas fechas ya no están disponibles', 'error');
+      return;
+    }
+
+    const telefono = $('#reserva-telefono').value.trim();
     const notas = $('#reserva-notas').value.trim();
-
-    let valid = true;
-    if (!inicio) { $('#err-reserva-inicio').textContent = 'Selecciona una fecha de inicio'; valid = false; }
-    if (!fin) { $('#err-reserva-fin').textContent = 'Selecciona una fecha de término'; valid = false; }
-    if (inicio && fin && fin < inicio) { $('#err-reserva-fin').textContent = 'Debe ser igual o posterior al inicio'; valid = false; }
-    if (!valid) return;
-
     const btn = $('#btn-reserva-submit');
+
     try {
       btn.textContent = 'RESERVANDO...';
       btn.disabled = true;
@@ -409,17 +595,20 @@ if (reservaFormEl) {
       await apiFetch('/reservas', {
         method: 'POST',
         body: JSON.stringify({
-          maquinariaId: reservaMaquinariaId,
-          fecha_inicio: inicio,
-          fecha_fin: fin,
-          notas
+          maquinariaId: reserva.maquinariaId,
+          fecha_inicio: ymd(reserva.inicio),
+          fecha_fin: ymd(reserva.fin),
+          telefono,
+          notas,
         })
       });
 
-      toast('Reserva creada exitosamente ✓', 'success');
+      toast('Reserva creada exitosamente ✓ Queda pendiente de aprobación.', 'success');
       closeModal('modal-reserva');
     } catch (err) {
       toast('Error al reservar: ' + err.message, 'error');
+      // Si el backend rechazó por choque de fechas, recargar disponibilidad
+      if (err.status === 409) openReserva(reserva.maquinariaId, $('#reserva-nombre').textContent);
     } finally {
       btn.textContent = 'CONFIRMAR RESERVA';
       btn.disabled = false;

@@ -7,6 +7,14 @@
 // ══════════════════════════════════════════════════
 const UserModel = require('../models/userModel');
 
+// Regenera la sesión antes de asociar el usuario (previene session fixation:
+// un ID de sesión conocido por un atacante deja de ser válido tras el login).
+function regenerarSesion(req) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate(err => (err ? reject(err) : resolve()));
+  });
+}
+
 const AuthController = {
 
   // POST /api/auth/register
@@ -19,6 +27,7 @@ const AuthController = {
         return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 6 caracteres' });
 
       const user = await UserModel.create({ nombre, email, password });
+      await regenerarSesion(req);
       req.session.userId = user.id;
 
       return res.status(201).json({ success: true, message: 'Cuenta creada exitosamente', user });
@@ -38,6 +47,7 @@ const AuthController = {
       if (!user)
         return res.status(401).json({ success: false, message: 'Correo o contraseña incorrectos' });
 
+      await regenerarSesion(req);
       req.session.userId = user.id;
       return res.json({ success: true, message: 'Sesión iniciada', user });
     } catch (err) {

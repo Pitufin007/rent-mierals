@@ -6,7 +6,11 @@
 //   1. Asegúrate de tener el .env actualizado con las
 //      credenciales de Azure SQL (DB_SERVER, DB_DATABASE,
 //      DB_USER, DB_PASSWORD, DB_ENCRYPT=true).
-//   2. Corre: node backend/setup-azure-db.js
+//   2. Schema completo:  node backend/setup-azure-db.js
+//      Una migración:    node backend/setup-azure-db.js database/migration_agenda.sql
+//
+// Si se pasa un archivo como argumento, se ejecuta ese en vez del
+// schema completo (útil para aplicar migraciones puntuales).
 // ══════════════════════════════════════════════════
 
 require('dotenv').config();
@@ -35,8 +39,14 @@ async function runSchema() {
     pool = await sql.connect(config);
     console.log('✔  Conexión exitosa\n');
 
-    // Leer el archivo schema
-    const schemaPath = path.join(__dirname, '..', 'database', 'schema_azure.sql');
+    // Archivo a ejecutar: por defecto el schema completo, o el que se
+    // pase como argumento (ej: una migración puntual).
+    const argFile = process.argv[2];
+    const schemaPath = argFile
+      ? path.resolve(process.cwd(), argFile)
+      : path.join(__dirname, '..', 'database', 'schema_azure.sql');
+
+    console.log('Archivo SQL:', schemaPath, '\n');
 
     if (!fs.existsSync(schemaPath)) {
       throw new Error(`No se encontró el archivo: ${schemaPath}`);

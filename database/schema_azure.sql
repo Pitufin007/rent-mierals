@@ -96,6 +96,7 @@ BEGIN
         fecha_inicio        DATE            NOT NULL,
         fecha_fin           DATE            NOT NULL,
         notas               NVARCHAR(500)   NULL,
+        telefono            NVARCHAR(50)    NULL,           -- teléfono de contacto del cliente
         estado              NVARCHAR(20)    NOT NULL DEFAULT 'Pendiente',
         creada_en           DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
 
@@ -109,6 +110,48 @@ BEGIN
 
         CONSTRAINT CK_reservas_estado CHECK (estado IN ('Pendiente', 'Aprobada', 'Rechazada', 'Cancelada')),
         CONSTRAINT CK_reservas_fechas CHECK (fecha_fin >= fecha_inicio)
+    );
+END
+GO
+
+
+-- ──────────────────────────────────────────────────────────────────
+-- 4.5 TABLA: agenda
+-- ──────────────────────────────────────────────────────────────────
+-- Guarda las reservas YA APROBADAS. Es la fuente de verdad de "qué días
+-- está ocupada cada máquina": el catálogo calcula disponibilidad SOLO
+-- por fechas contra esta tabla (la máquina sigue 'Disponible' salvo en
+-- estos rangos).
+--
+-- reserva_id tiene FK ON DELETE CASCADE: si se elimina/cancela la reserva
+-- de origen, la entrada de agenda se libera automáticamente. maquinaria_id
+-- y usuario_id se guardan como snapshot (sin FK) para evitar múltiples
+-- rutas de cascada — mismo criterio "desnormalizado" que ya usa reservas.
+-- ──────────────────────────────────────────────────────────────────
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'agenda')
+BEGIN
+    CREATE TABLE agenda (
+        id                  INT IDENTITY(1,1) PRIMARY KEY,
+        reserva_id          INT             NOT NULL,
+        maquinaria_id       INT             NOT NULL,   -- snapshot (sin FK)
+        maquinaria_nombre   NVARCHAR(200)   NOT NULL,
+        usuario_id          INT             NOT NULL,   -- snapshot (sin FK)
+        cliente_nombre      NVARCHAR(150)   NOT NULL,
+        cliente_email       NVARCHAR(150)   NULL,
+        cliente_telefono    NVARCHAR(50)    NULL,
+        fecha_inicio        DATE            NOT NULL,
+        fecha_fin           DATE            NOT NULL,
+        precio_dia          DECIMAL(12,2)   NOT NULL DEFAULT 0,
+        precio_total        DECIMAL(12,2)   NOT NULL DEFAULT 0,
+        notas               NVARCHAR(500)   NULL,
+        agendada_en         DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+
+        CONSTRAINT FK_agenda_reserva
+            FOREIGN KEY (reserva_id) REFERENCES reservas(id)
+            ON DELETE CASCADE,
+
+        CONSTRAINT CK_agenda_fechas CHECK (fecha_fin >= fecha_inicio)
     );
 END
 GO
@@ -206,6 +249,14 @@ GO
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_reservas_maquinaria')
     CREATE INDEX IX_reservas_maquinaria ON reservas(maquinaria_id);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_agenda_maquinaria')
+    CREATE INDEX IX_agenda_maquinaria ON agenda(maquinaria_id);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_agenda_reserva')
+    CREATE INDEX IX_agenda_reserva ON agenda(reserva_id);
 GO
 
 

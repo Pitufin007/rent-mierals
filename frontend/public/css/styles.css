@@ -1460,3 +1460,139 @@ body,
   .services-grid { grid-template-columns: 1fr; }
   .why-grid { grid-template-columns: 1fr; }
 }
+
+/* ══════════════════════════════════════════════════
+   CALENDARIO DE RESERVA — selección de fechas con
+   bloqueo de días ya agendados. Usa las variables de
+   color, por lo que se adapta solo al modo oscuro.
+   ══════════════════════════════════════════════════ */
+
+.reserva-ocupadas {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  margin-bottom: 1rem;
+  font-size: .85rem;
+  color: var(--light);
+}
+.reserva-ocupadas strong { color: var(--white); }
+.reserva-ocupadas ul { margin: .4rem 0 0; padding-left: .2rem; list-style: none; }
+.reserva-ocupadas li { padding: .1rem 0; color: var(--silver); }
+
+.cal {
+  border: 1px solid var(--iron, #e2e6ea);
+  border-radius: 10px;
+  padding: .8rem;
+  background: var(--steel);
+  margin-bottom: 1rem;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .7rem;
+}
+.cal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: var(--white);
+  font-size: 1.05rem;
+}
+.cal-nav {
+  background: var(--ore);
+  border: 1px solid var(--iron, #d5dbe0);
+  color: var(--gold);
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.cal-nav:hover:not(:disabled) { background: var(--gold); color: #fff; border-color: var(--gold); }
+.cal-nav:disabled { opacity: .35; cursor: not-allowed; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-dow {
+  margin-bottom: 4px;
+}
+.cal-dow span {
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--silver);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 2px 0;
+}
+.cal-day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  border-radius: 7px;
+  color: var(--light);
+  background: var(--ore);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+  user-select: none;
+}
+.cal-day.empty { background: transparent; cursor: default; }
+.cal-day:not(.empty):not(.past):not(.ocup):hover {
+  border-color: var(--gold);
+}
+.cal-day.past {
+  color: color-mix(in srgb, var(--silver) 55%, transparent);
+  background: transparent;
+  cursor: not-allowed;
+}
+.cal-day.ocup {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: color-mix(in srgb, var(--danger) 85%, var(--light));
+  cursor: not-allowed;
+  text-decoration: line-through;
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+.cal-day.in-range {
+  background: color-mix(in srgb, var(--gold) 20%, transparent);
+  color: var(--white);
+}
+.cal-day.sel {
+  background: var(--gold);
+  color: #fff;
+  font-weight: 700;
+  border-color: var(--gold);
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .9rem;
+  margin-top: .8rem;
+  font-size: .74rem;
+  color: var(--silver);
+}
+.cal-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.cal-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.cal-dot.libre { background: var(--ore); border: 1px solid var(--gold); }
+.cal-dot.sel  { background: var(--gold); }
+.cal-dot.ocup { background: color-mix(in srgb, var(--danger) 55%, transparent); }
+
+.reserva-summary {
+  background: var(--steel);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  margin-bottom: 1rem;
+  font-size: .9rem;
+  color: var(--light);
+  min-height: 44px;
+}

@@ -66,6 +66,35 @@
         </table>
       </div>
 
+      <!-- Agenda de equipos (reservas aprobadas) -->
+      <div class="section-header" style="margin-top:2.5rem">
+        <div class="section-title"><span>📅</span> Agenda de Equipos</div>
+        <button class="btn btn-outline btn-sm" onclick="loadAgenda()">↻ Actualizar</button>
+      </div>
+      <p style="color:var(--silver);margin:-.5rem 0 1rem;font-size:.88rem">
+        Reservas aprobadas y agendadas. Estos días quedan bloqueados en el catálogo para el resto de los usuarios.
+      </p>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Cliente</th>
+              <th>Contacto</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Días</th>
+              <th>Total</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody id="agenda-tbody">
+            <tr><td colspan="8" style="text-align:center;color:var(--silver)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
     </div>
   </main>
 
@@ -107,7 +136,52 @@
       currentAdmin = await requireAdmin();
       if (!currentAdmin) return;
       await loadUsers();
+      await loadAgenda();
     })();
+
+    const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    function fFecha(v) {
+      const s = String(v).slice(0, 10).split('-');
+      if (s.length !== 3) return v;
+      return `${parseInt(s[2],10)} ${MESES_C[parseInt(s[1],10)-1]} ${s[0]}`;
+    }
+    function fDias(a, b) {
+      const d1 = new Date(String(a).slice(0,10));
+      const d2 = new Date(String(b).slice(0,10));
+      return Math.round((d2 - d1) / 86400000) + 1;
+    }
+    function fCLP(n) {
+      return new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 }).format(n || 0);
+    }
+
+    async function loadAgenda() {
+      const tbody = document.getElementById('agenda-tbody');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--silver)">Cargando...</td></tr>';
+      try {
+        const res = await apiFetch('/agenda');
+        const items = res.data;
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--silver)">Sin equipos agendados aún</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(a => {
+          const contacto = [a.clienteEmail, a.clienteTelefono].filter(Boolean).map(escapeHtml).join('<br>') || '—';
+          return `
+            <tr>
+              <td style="color:var(--white);font-weight:600">${escapeHtml(a.maquinariaNombre)}</td>
+              <td>${escapeHtml(a.clienteNombre)}</td>
+              <td style="color:var(--silver);font-size:.82rem">${contacto}</td>
+              <td>${fFecha(a.fecha_inicio)}</td>
+              <td>${fFecha(a.fecha_fin)}</td>
+              <td style="text-align:center">${fDias(a.fecha_inicio, a.fecha_fin)}</td>
+              <td style="color:var(--gold);font-weight:600">${fCLP(a.precioTotal)}</td>
+              <td style="color:var(--silver);font-size:.82rem">${a.notas ? escapeHtml(a.notas) : '—'}</td>
+            </tr>`;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger)">Error al cargar la agenda: ${err.message}</td></tr>`;
+      }
+    }
 
     async function loadUsers() {
       try {
@@ -120,8 +194,8 @@
         tbody.innerHTML = users.map(u => `
           <tr>
             <td style="color:var(--silver)">#${u.id}</td>
-            <td style="color:var(--white);font-weight:600">${u.nombre}</td>
-            <td style="color:var(--silver)">${u.email}</td>
+            <td style="color:var(--white);font-weight:600">${escapeHtml(u.nombre)}</td>
+            <td style="color:var(--silver)">${escapeHtml(u.email)}</td>
             <td>
               <span style="background:${u.rol === 'admin' ? 'var(--gold)' : 'var(--steel)'};
                 color:${u.rol === 'admin' ? 'var(--coal)' : 'var(--light)'};
@@ -132,10 +206,10 @@
             </td>
             <td>
               ${u.id !== currentAdmin.id
-                ? `<button class="btn btn-outline btn-sm" onclick="openRolModal(${u.id}, '${u.nombre}', '${u.rol}')">
+                ? `<button class="btn btn-outline btn-sm" onclick="openRolModal(${u.id}, '${escapeHtml(u.nombre).replace(/'/g, "\\'")}', '${u.rol}')">
                      Cambiar Rol
                    </button>
-                   <button class="btn btn-danger btn-sm" style="margin-left:.4rem" onclick="deleteUser(${u.id}, '${u.nombre}')">
+                   <button class="btn btn-danger btn-sm" style="margin-left:.4rem" onclick="deleteUser(${u.id}, '${escapeHtml(u.nombre).replace(/'/g, "\\'")}')">
                      ✕
                    </button>`
                 : '<span style="color:var(--silver);font-size:.8rem">(tú)</span>'

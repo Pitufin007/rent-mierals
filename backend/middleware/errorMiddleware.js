@@ -8,18 +8,29 @@ const notFound = (req, res, next) => {
 // Middleware global de manejo de errores
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
+  const esProduccion = process.env.NODE_ENV === 'production';
+
+  // En producción, los errores 500 no exponen el mensaje interno real
+  // (puede revelar detalles de la base de datos, rutas, etc.). Los
+  // errores 4xx sí muestran su mensaje, porque son intencionales.
+  const mensaje = (statusCode >= 500 && esProduccion)
+    ? 'Error interno del servidor'
+    : (err.message || 'Error interno del servidor');
 
   const response = {
     success: false,
-    message: err.message || 'Error interno del servidor',
+    message: mensaje,
     path: req.originalUrl,
     method: req.method,
     timestamp: new Date().toISOString()
   };
 
-  // En desarrollo, incluir el stack trace
-  if (process.env.NODE_ENV === 'development') {
+  // En desarrollo, incluir el stack trace para depurar
+  if (!esProduccion) {
     response.stack = err.stack;
+  } else if (statusCode >= 500) {
+    // Registrar el error real en el servidor aunque no se envíe al cliente
+    console.error('[ERROR]', req.method, req.originalUrl, '→', err.message);
   }
 
   res.status(statusCode).json(response);

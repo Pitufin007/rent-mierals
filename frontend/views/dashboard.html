@@ -115,6 +115,19 @@
     </div>
   </main>
 
+  <!-- Modal detalle de la solicitud de reserva -->
+  <div class="modal-overlay" id="modal-detalle">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3>DETALLE DE LA SOLICITUD</h3>
+        <button class="modal-close" onclick="cerrarDetalle()">✕</button>
+      </div>
+      <div class="modal-body" id="detalle-body">
+        <!-- se llena por JS -->
+      </div>
+    </div>
+  </div>
+
   <footer></footer>
 
   <div id="alert-container"></div>
@@ -169,17 +182,18 @@
 
       window.loadReservas = async function loadReservas() {
         const tbody = document.getElementById('reservas-tbody');
-        const cols = user.rol === 'admin' ? 6 : 5;
+        const cols = user.rol === 'admin' ? 7 : 6;
 
         // Encabezado: el admin además ve quién reservó
         const theadRow = document.getElementById('reservas-thead-row');
         theadRow.innerHTML = (user.rol === 'admin' ? '<th>Usuario</th>' : '') +
-          '<th>Equipo</th><th>Desde</th><th>Hasta</th><th>Estado</th><th>Acciones</th>';
+          '<th>Equipo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Estado</th><th>Acciones</th>';
 
         tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--silver)">Cargando...</td></tr>`;
         try {
           const data = await apiFetch('/reservas');
           const reservas = data.data;
+          window._reservas = reservas; // para abrir el detalle sin volver a pedir
 
           if (reservas.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--silver)">Sin reservas</td></tr>`;
@@ -190,17 +204,18 @@
 
           tbody.innerHTML = reservas.map(r => `
             <tr>
-              ${user.rol === 'admin' ? `<td>${r.usuarioNombre}</td>` : ''}
-              <td>${r.maquinariaNombre}</td>
-              <td>${r.fecha_inicio}</td>
-              <td>${r.fecha_fin}</td>
+              ${user.rol === 'admin' ? `<td>${escapeHtml(r.usuarioNombre)}</td>` : ''}
+              <td>${escapeHtml(r.maquinariaNombre)}</td>
+              <td>${fFecha(r.fecha_inicio)}</td>
+              <td>${fFecha(r.fecha_fin)}</td>
+              <td style="text-align:center">${fDias(r.fecha_inicio, r.fecha_fin)}</td>
               <td style="color:${estadoColor[r.estado] || 'var(--silver)'}">${r.estado}</td>
               <td style="display:flex;gap:.4rem;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" onclick="verDetalle(${r.id})">👁 VER</button>
                 ${user.rol === 'admin' && r.estado === 'Pendiente' ? `
                   <button class="btn btn-primary btn-sm" onclick="cambiarEstadoReserva(${r.id}, 'Aprobada')">APROBAR</button>
                   <button class="btn btn-outline btn-sm" onclick="cambiarEstadoReserva(${r.id}, 'Rechazada')">RECHAZAR</button>
                 ` : ''}
-                <button class="btn btn-danger btn-sm" onclick="eliminarReserva(${r.id})">✕</button>
               </td>
             </tr>
           `).join('');
@@ -208,6 +223,76 @@
           tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--danger)">Error al cargar reservas</td></tr>`;
         }
       };
+
+      // ── Helpers de formato y detalle ──────────────────────────
+      const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      window.fFecha = function (v) {
+        const s = String(v).slice(0, 10).split('-');
+        if (s.length !== 3) return v;
+        return `${parseInt(s[2], 10)} ${MESES_C[parseInt(s[1], 10) - 1]} ${s[0]}`;
+      };
+      window.fDias = function (a, b) {
+        const d1 = new Date(String(a).slice(0, 10));
+        const d2 = new Date(String(b).slice(0, 10));
+        return Math.round((d2 - d1) / 86400000) + 1;
+      };
+      function fFechaHora(v) {
+        const d = new Date(v);
+        if (isNaN(d)) return String(v).slice(0, 10);
+        return `${window.fFecha(v)}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+
+      window.verDetalle = function (id) {
+        const r = (window._reservas || []).find(x => x.id === id);
+        if (!r) return;
+        const estadoColor = { Pendiente: 'var(--warning)', Aprobada: 'var(--success)', Rechazada: 'var(--danger)', Cancelada: 'var(--silver)' };
+        const dias = window.fDias(r.fecha_inicio, r.fecha_fin);
+
+        const fila = (etiqueta, valor) => `
+          <div style="display:flex;justify-content:space-between;gap:1rem;padding:.55rem 0;border-bottom:1px solid var(--iron,#e2e6ea)">
+            <span style="color:var(--silver);font-size:.85rem">${etiqueta}</span>
+            <span style="color:var(--white);text-align:right;font-weight:600">${valor}</span>
+          </div>`;
+
+        document.getElementById('detalle-body').innerHTML = `
+          <div style="margin-bottom:1rem">
+            <div style="font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:1px;color:var(--silver);font-size:.78rem">Solicitud #${r.id}</div>
+            <div style="font-size:1.15rem;font-weight:700;color:var(--white);margin-top:.15rem">${escapeHtml(r.maquinariaNombre)}</div>
+          </div>
+          ${fila('Estado', `<span style="color:${estadoColor[r.estado] || 'var(--silver)'}">${r.estado}</span>`)}
+          ${fila('Cliente', escapeHtml(r.usuarioNombre))}
+          ${fila('Teléfono de contacto', r.telefono ? escapeHtml(r.telefono) : '<span style="color:var(--silver);font-weight:400">No indicado</span>')}
+          ${fila('Desde', window.fFecha(r.fecha_inicio))}
+          ${fila('Hasta', window.fFecha(r.fecha_fin))}
+          ${fila('Duración', `${dias} ${dias === 1 ? 'día' : 'días'}`)}
+          ${fila('Solicitada el', fFechaHora(r.creada_en))}
+          <div style="margin-top:1rem">
+            <div style="color:var(--silver);font-size:.85rem;margin-bottom:.35rem">Notas del cliente</div>
+            <div style="background:var(--steel);border-radius:8px;padding:.7rem .9rem;color:var(--light);min-height:44px">
+              ${r.notas ? escapeHtml(r.notas) : '<span style="color:var(--silver)">Sin notas</span>'}
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:1.3rem;justify-content:space-between">
+            <button class="btn btn-danger" onclick="eliminarReserva(${r.id}); cerrarDetalle()">🗑 ELIMINAR</button>
+            <div style="display:flex;gap:.6rem">
+              ${user.rol === 'admin' && r.estado === 'Pendiente' ? `
+                <button class="btn btn-outline" onclick="cambiarEstadoReserva(${r.id}, 'Rechazada'); cerrarDetalle()">RECHAZAR</button>
+                <button class="btn btn-primary" onclick="cambiarEstadoReserva(${r.id}, 'Aprobada'); cerrarDetalle()">APROBAR</button>
+              ` : `<button class="btn btn-outline" onclick="cerrarDetalle()">CERRAR</button>`}
+            </div>
+          </div>`;
+
+        document.getElementById('modal-detalle').classList.add('active');
+        document.body.style.overflow = 'hidden';
+      };
+
+      window.cerrarDetalle = function () {
+        document.getElementById('modal-detalle').classList.remove('active');
+        document.body.style.overflow = '';
+      };
+      document.addEventListener('click', e => {
+        if (e.target.id === 'modal-detalle') cerrarDetalle();
+      });
 
       window.cambiarEstadoReserva = async function cambiarEstadoReserva(id, estado) {
         try {
