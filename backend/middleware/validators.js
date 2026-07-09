@@ -115,6 +115,24 @@ const maquinariaIdParamValidator = [
   handleValidation,
 ];
 
+// ── Mantención ──────────────────────────────────────────────────────
+const mantenimientoValidator = [
+  body('maquinariaId')
+    .notEmpty().withMessage('Falta la maquinaria')
+    .isInt({ min: 1 }).withMessage('Maquinaria inválida'),
+  body('fecha_inicio')
+    .notEmpty().withMessage('Falta la fecha de inicio')
+    .isISO8601().withMessage('Fecha de inicio inválida'),
+  body('fecha_fin')
+    .notEmpty().withMessage('Falta la fecha de término')
+    .isISO8601().withMessage('Fecha de término inválida'),
+  body('motivo')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 }).withMessage('El motivo no puede superar 500 caracteres'),
+  handleValidation,
+];
+
 module.exports = {
   handleValidation,
   registerValidator,
@@ -125,4 +143,5 @@ module.exports = {
   estadoReservaValidator,
   idParamValidator,
   maquinariaIdParamValidator,
+  mantenimientoValidator,
 };

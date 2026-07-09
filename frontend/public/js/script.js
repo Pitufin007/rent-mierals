@@ -98,9 +98,8 @@ function cardActionsHtml(m) {
     `;
   }
   if (isUsuario()) {
-    const disponible = m.estado === 'Disponible';
     return `
-      <button class="btn btn-primary btn-sm" ${disponible ? '' : 'disabled title="No disponible actualmente"'}
+      <button class="btn btn-primary btn-sm"
         onclick="openReserva(${m.id}, '${m.nombre.replace(/'/g, "\\'")}')">RESERVAR</button>
     `;
   }
@@ -217,8 +216,7 @@ function detailActionsHtml(m) {
     return `<button class="btn btn-primary" onclick="openEdit(${m.id});closeModal('modal-detail')">EDITAR</button>`;
   }
   if (isUsuario()) {
-    const disponible = m.estado === 'Disponible';
-    return `<button class="btn btn-primary" ${disponible ? '' : 'disabled title="No disponible actualmente"'}
+    return `<button class="btn btn-primary"
       onclick="closeModal('modal-detail');openReserva(${m.id}, '${m.nombre.replace(/'/g, "\\'")}')">RESERVAR</button>`;
   }
   return '';
@@ -381,7 +379,8 @@ const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct'
 const reserva = {
   maquinariaId: null,
   precioDia: 0,
-  ocupadas: [],          // [{ini: Date, fin: Date, cliente}]
+  ocupadas: [],          // [{ini: Date, fin: Date, cliente}]  → rojo
+  mantenimientos: [],    // [{ini: Date, fin: Date, motivo}]   → naranjo
   viewY: 0, viewM: 0,    // mes visible en el calendario
   inicio: null, fin: null,
 };
@@ -410,13 +409,22 @@ function hoyLocal() {
 function diasInclusivos(a, b) {
   return Math.round((b - a) / 86400000) + 1;
 }
-// ¿La fecha cae dentro de algún rango ocupado (inclusive)?
+// ¿La fecha cae dentro de algún rango ocupado (reserva)?
 function estaOcupado(date) {
   return reserva.ocupadas.some(r => date >= r.ini && date <= r.fin);
 }
-// ¿El rango [a, b] pisa algún día ocupado?
+// ¿La fecha cae dentro de algún rango de mantención?
+function estaEnMantencion(date) {
+  return reserva.mantenimientos.some(r => date >= r.ini && date <= r.fin);
+}
+// ¿La fecha está bloqueada por cualquier motivo (reserva o mantención)?
+function estaBloqueado(date) {
+  return estaOcupado(date) || estaEnMantencion(date);
+}
+// ¿El rango [a, b] pisa algún día bloqueado (reserva o mantención)?
 function rangoPisaOcupado(a, b) {
-  return reserva.ocupadas.some(r => a <= r.fin && b >= r.ini);
+  return reserva.ocupadas.some(r => a <= r.fin && b >= r.ini)
+      || reserva.mantenimientos.some(r => a <= r.fin && b >= r.ini);
 }
 
 async function openReserva(id, nombre) {
@@ -428,6 +436,7 @@ async function openReserva(id, nombre) {
   reserva.inicio = null;
   reserva.fin = null;
   reserva.ocupadas = [];
+  reserva.mantenimientos = [];
   reserva.precioDia = 0;
 
   $('#reserva-nombre').textContent = nombre;
@@ -452,6 +461,11 @@ async function openReserva(id, nombre) {
       fin: toLocalDate(o.fecha_fin),
       cliente: o.cliente,
     }));
+    reserva.mantenimientos = (data.mantenimientos || []).map(o => ({
+      ini: toLocalDate(o.fecha_inicio),
+      fin: toLocalDate(o.fecha_fin),
+      motivo: o.motivo,
+    }));
   } catch (err) {
     toast('No se pudo cargar la disponibilidad: ' + err.message, 'error');
   }
@@ -461,13 +475,21 @@ async function openReserva(id, nombre) {
 
 function renderOcupadas() {
   const box = $('#reserva-ocupadas');
-  if (!reserva.ocupadas.length) { box.style.display = 'none'; return; }
-  const items = reserva.ocupadas
-    .slice()
-    .sort((a, b) => a.ini - b.ini)
-    .map(r => `<li>🔒 ${fmtFecha(r.ini)} → ${fmtFecha(r.fin)}</li>`)
-    .join('');
-  box.innerHTML = `<strong>Fechas ya reservadas para este equipo:</strong><ul>${items}</ul>`;
+  const partes = [];
+
+  if (reserva.ocupadas.length) {
+    const items = reserva.ocupadas.slice().sort((a, b) => a.ini - b.ini)
+      .map(r => `<li>🔴 Reservado: ${fmtFecha(r.ini)} → ${fmtFecha(r.fin)}</li>`).join('');
+    partes.push(`<ul>${items}</ul>`);
+  }
+  if (reserva.mantenimientos.length) {
+    const items = reserva.mantenimientos.slice().sort((a, b) => a.ini - b.ini)
+      .map(r => `<li>🟠 Mantención: ${fmtFecha(r.ini)} → ${fmtFecha(r.fin)}</li>`).join('');
+    partes.push(`<ul>${items}</ul>`);
+  }
+
+  if (!partes.length) { box.style.display = 'none'; return; }
+  box.innerHTML = `<strong>Fechas no disponibles para este equipo:</strong>${partes.join('')}`;
   box.style.display = 'block';
 }
 
@@ -490,6 +512,7 @@ function renderCalendar() {
 
     if (fecha < hoy) { clases.push('past'); clickable = false; }
     else if (estaOcupado(fecha)) { clases.push('ocup'); clickable = false; }
+    else if (estaEnMantencion(fecha)) { clases.push('mant'); clickable = false; }
 
     if (reserva.inicio && reserva.fin && fecha >= reserva.inicio && fecha <= reserva.fin) clases.push('in-range');
     if (reserva.inicio && +fecha === +reserva.inicio) clases.push('sel');
@@ -520,7 +543,7 @@ function onDayClick(ymdStr) {
   } else {
     // Cerrar el rango, validando que no pise días ocupados
     if (rangoPisaOcupado(reserva.inicio, fecha)) {
-      toast('El rango elegido incluye días ya reservados. Elige otro término.', 'error');
+      toast('El rango elegido incluye días no disponibles (reservados o en mantención). Elige otro término.', 'error');
       reserva.fin = null;
     } else {
       reserva.fin = fecha;

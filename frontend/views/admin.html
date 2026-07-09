@@ -95,6 +95,57 @@
         </table>
       </div>
 
+      <!-- Mantenciones -->
+      <div class="section-header" style="margin-top:2.5rem">
+        <div class="section-title"><span>🛠️</span> Mantenciones</div>
+        <button class="btn btn-outline btn-sm" onclick="loadMantenciones()">↻ Actualizar</button>
+      </div>
+      <p style="color:var(--silver);margin:-.5rem 0 1rem;font-size:.88rem">
+        Marca los rangos de fechas en que un equipo está en mantención. Esos días quedan bloqueados (en naranjo) en el calendario de reserva.
+      </p>
+
+      <div class="form-section" style="margin-bottom:1.2rem">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Equipo <span class="req">*</span></label>
+            <select id="mant-maquina"><option value="">Cargando...</option></select>
+          </div>
+          <div class="form-group">
+            <label>Desde <span class="req">*</span></label>
+            <input id="mant-inicio" type="date">
+          </div>
+          <div class="form-group">
+            <label>Hasta <span class="req">*</span></label>
+            <input id="mant-fin" type="date">
+          </div>
+          <div class="form-group full">
+            <label>Motivo (opcional)</label>
+            <input id="mant-motivo" type="text" placeholder="Ej: cambio de aceite, revisión hidráulica...">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="agregarMantencion()">＋ AGREGAR MANTENCIÓN</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Equipo</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Días</th>
+              <th>Motivo</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="mant-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--silver)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
     </div>
   </main>
 
@@ -137,7 +188,83 @@
       if (!currentAdmin) return;
       await loadUsers();
       await loadAgenda();
+      await loadMantenciones();
+      await cargarMaquinasSelect();
     })();
+
+    // ── Mantenciones ─────────────────────────────────────────
+    async function cargarMaquinasSelect() {
+      const sel = document.getElementById('mant-maquina');
+      try {
+        const res = await apiFetch('/maquinaria');
+        const maquinas = res.data || res;
+        sel.innerHTML = '<option value="">Selecciona un equipo…</option>' +
+          maquinas.map(m => `<option value="${m.id}">${escapeHtml(m.nombre)}</option>`).join('');
+      } catch (e) {
+        sel.innerHTML = '<option value="">Error al cargar equipos</option>';
+      }
+    }
+
+    async function loadMantenciones() {
+      const tbody = document.getElementById('mant-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--silver)">Cargando...</td></tr>';
+      try {
+        const res = await apiFetch('/mantenimiento');
+        const items = res.data;
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--silver)">Sin mantenciones registradas</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(m => `
+          <tr>
+            <td style="color:var(--white);font-weight:600">${escapeHtml(m.maquinariaNombre)}</td>
+            <td>${fFecha(m.fecha_inicio)}</td>
+            <td>${fFecha(m.fecha_fin)}</td>
+            <td style="text-align:center">${fDias(m.fecha_inicio, m.fecha_fin)}</td>
+            <td style="color:var(--silver);font-size:.85rem">${m.motivo ? escapeHtml(m.motivo) : '—'}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="eliminarMantencion(${m.id})">✕</button></td>
+          </tr>`).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function agregarMantencion() {
+      const maquinariaId = document.getElementById('mant-maquina').value;
+      const fecha_inicio = document.getElementById('mant-inicio').value;
+      const fecha_fin = document.getElementById('mant-fin').value;
+      const motivo = document.getElementById('mant-motivo').value.trim();
+
+      if (!maquinariaId || !fecha_inicio || !fecha_fin) {
+        showAlert('Completa equipo, fecha desde y fecha hasta', 'error');
+        return;
+      }
+      try {
+        await apiFetch('/mantenimiento', {
+          method: 'POST',
+          body: JSON.stringify({ maquinariaId, fecha_inicio, fecha_fin, motivo })
+        });
+        showAlert('Mantención registrada ✓', 'success');
+        document.getElementById('mant-inicio').value = '';
+        document.getElementById('mant-fin').value = '';
+        document.getElementById('mant-motivo').value = '';
+        document.getElementById('mant-maquina').value = '';
+        await loadMantenciones();
+      } catch (err) {
+        showAlert('Error: ' + err.message, 'error');
+      }
+    }
+
+    async function eliminarMantencion(id) {
+      if (!confirm('¿Eliminar esta mantención? Esos días volverán a estar disponibles.')) return;
+      try {
+        await apiFetch(`/mantenimiento/${id}`, { method: 'DELETE' });
+        showAlert('Mantención eliminada', 'success');
+        await loadMantenciones();
+      } catch (err) {
+        showAlert('Error: ' + err.message, 'error');
+      }
+    }
 
     const MESES_C = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     function fFecha(v) {

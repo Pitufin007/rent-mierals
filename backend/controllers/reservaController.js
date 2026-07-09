@@ -14,6 +14,7 @@
 const ReservaModel = require('../models/reservaModel');
 const MaquinariaModel = require('../models/itemModel');
 const AgendaModel = require('../models/agendaModel');
+const MantenimientoModel = require('../models/mantenimientoModel');
 const UserModel = require('../models/userModel');
 const { notificarEventoReserva } = require('../services/telegramNotifier');
 
@@ -55,12 +56,14 @@ const ReservaController = {
         return res.status(404).json({ success: false, message: `No se encontró maquinaria con ID ${maquinariaId}` });
       }
       const ocupadas = await AgendaModel.getByMaquinaria(maquinariaId);
+      const mantenimientos = await MantenimientoModel.getByMaquinaria(maquinariaId);
       res.status(200).json({
         success: true,
         maquinariaId: maquina.id,
         maquinariaNombre: maquina.nombre,
         precioDia: maquina.precio_arriendo_dia,
         ocupadas,
+        mantenimientos,
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error al obtener la disponibilidad', error: error.message });
@@ -94,6 +97,15 @@ const ReservaController = {
         return res.status(409).json({
           success: false,
           message: `Esas fechas no están disponibles: el equipo ya está reservado del ${fechaCorta(conflicto.fecha_inicio)} al ${fechaCorta(conflicto.fecha_fin)}. Elige otro rango de fechas.`
+        });
+      }
+
+      // ── Bloqueo por mantención ──
+      const enMantencion = await MantenimientoModel.hayConflicto(maquina.id, fecha_inicio, fecha_fin);
+      if (enMantencion) {
+        return res.status(409).json({
+          success: false,
+          message: `Esas fechas no están disponibles: el equipo está en mantención del ${fechaCorta(enMantencion.fecha_inicio)} al ${fechaCorta(enMantencion.fecha_fin)}. Elige otro rango de fechas.`
         });
       }
 
@@ -143,6 +155,16 @@ const ReservaController = {
           return res.status(409).json({
             success: false,
             message: `No se puede aprobar: el equipo ya está agendado del ${fechaCorta(conflicto.fecha_inicio)} al ${fechaCorta(conflicto.fecha_fin)} para ${conflicto.cliente}.`
+          });
+        }
+
+        const enMantencion = await MantenimientoModel.hayConflicto(
+          reserva.maquinariaId, reserva.fecha_inicio, reserva.fecha_fin
+        );
+        if (enMantencion) {
+          return res.status(409).json({
+            success: false,
+            message: `No se puede aprobar: el equipo está en mantención del ${fechaCorta(enMantencion.fecha_inicio)} al ${fechaCorta(enMantencion.fecha_fin)}.`
           });
         }
 

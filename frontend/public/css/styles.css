@@ -1547,7 +1547,7 @@ body,
   user-select: none;
 }
 .cal-day.empty { background: transparent; cursor: default; }
-.cal-day:not(.empty):not(.past):not(.ocup):hover {
+.cal-day:not(.empty):not(.past):not(.ocup):not(.mant):hover {
   border-color: var(--gold);
 }
 .cal-day.past {
@@ -1556,11 +1556,28 @@ body,
   cursor: not-allowed;
 }
 .cal-day.ocup {
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
-  color: color-mix(in srgb, var(--danger) 85%, var(--light));
+  background: #dc2626;              /* rojo sólido, siempre visible */
+  color: #fff;
   cursor: not-allowed;
   text-decoration: line-through;
-  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  border-color: #b91c1c;
+  opacity: 1;
+  font-weight: 600;
+}
+.cal-day.ocup:hover {
+  background: #dc2626;             /* no cambia al pasar el mouse */
+}
+.cal-day.mant {
+  background: #ea8f27;             /* naranjo sólido = mantención */
+  color: #fff;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  border-color: #c9761a;
+  opacity: 1;
+  font-weight: 600;
+}
+.cal-day.mant:hover {
+  background: #ea8f27;
 }
 .cal-day.in-range {
   background: color-mix(in srgb, var(--gold) 20%, transparent);
@@ -1585,7 +1602,8 @@ body,
 .cal-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .cal-dot.libre { background: var(--ore); border: 1px solid var(--gold); }
 .cal-dot.sel  { background: var(--gold); }
-.cal-dot.ocup { background: color-mix(in srgb, var(--danger) 55%, transparent); }
+.cal-dot.ocup { background: #dc2626; }
+.cal-dot.mant { background: #ea8f27; }
 
 .reserva-summary {
   background: var(--steel);
