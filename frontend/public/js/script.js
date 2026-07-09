@@ -93,6 +93,7 @@ function renderCards(lista) {
 function cardActionsHtml(m) {
   if (isAdmin()) {
     return `
+      <button class="btn btn-outline btn-sm" onclick="openReserva(${m.id}, '${m.nombre.replace(/'/g, "\\'")}', true)">AGENDAR</button>
       <button class="btn btn-primary btn-sm" onclick="openEdit(${m.id})">EDITAR</button>
       <button class="btn btn-danger btn-sm" onclick="confirmDelete(${m.id}, '${m.nombre.replace(/'/g, "\\'")}')">✕</button>
     `;
@@ -213,7 +214,9 @@ async function openDetail(id) {
 
 function detailActionsHtml(m) {
   if (isAdmin()) {
-    return `<button class="btn btn-primary" onclick="openEdit(${m.id});closeModal('modal-detail')">EDITAR</button>`;
+    return `
+      <button class="btn btn-outline" onclick="closeModal('modal-detail');openReserva(${m.id}, '${m.nombre.replace(/'/g, "\\'")}', true)">AGENDAR</button>
+      <button class="btn btn-primary" onclick="openEdit(${m.id});closeModal('modal-detail')">EDITAR</button>`;
   }
   if (isUsuario()) {
     return `<button class="btn btn-primary"
@@ -378,6 +381,7 @@ const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct'
 
 const reserva = {
   maquinariaId: null,
+  modoAdmin: false,      // true cuando el admin agenda para un tercero
   precioDia: 0,
   ocupadas: [],          // [{ini: Date, fin: Date, cliente}]  → rojo
   mantenimientos: [],    // [{ini: Date, fin: Date, motivo}]   → naranjo
@@ -427,11 +431,12 @@ function rangoPisaOcupado(a, b) {
       || reserva.mantenimientos.some(r => a <= r.fin && b >= r.ini);
 }
 
-async function openReserva(id, nombre) {
+async function openReserva(id, nombre, modoAdmin = false) {
   if (!currentUser) {
     window.location.href = '/views/login.html';
     return;
   }
+  reserva.modoAdmin = modoAdmin;
   reserva.maquinariaId = id;
   reserva.inicio = null;
   reserva.fin = null;
@@ -439,10 +444,25 @@ async function openReserva(id, nombre) {
   reserva.mantenimientos = [];
   reserva.precioDia = 0;
 
+  // Título, campo de cliente y texto del botón según el modo
+  const clienteGroup = $('#reserva-cliente-group');
+  const modalTitle = document.querySelector('#modal-reserva .modal-header h3');
+  const submitBtn = $('#btn-reserva-submit');
+  if (modoAdmin) {
+    if (modalTitle) modalTitle.textContent = 'AGENDAR PARA UN CLIENTE';
+    clienteGroup.style.display = '';
+    $('#reserva-cliente').value = '';
+    submitBtn.textContent = 'AGENDAR RESERVA';
+  } else {
+    if (modalTitle) modalTitle.textContent = 'RESERVAR EQUIPO';
+    clienteGroup.style.display = 'none';
+    submitBtn.textContent = 'CONFIRMAR RESERVA';
+  }
+
   $('#reserva-nombre').textContent = nombre;
   $('#reserva-telefono').value = '';
   $('#reserva-notas').value = '';
-  $('#btn-reserva-submit').disabled = true;
+  submitBtn.disabled = true;
 
   const h = hoyLocal();
   reserva.viewY = h.getFullYear();
@@ -611,29 +631,52 @@ if (reservaFormEl) {
     const notas = $('#reserva-notas').value.trim();
     const btn = $('#btn-reserva-submit');
 
+    // Modo admin: agendar para un tercero (nombre obligatorio)
+    const esAdmin = reserva.modoAdmin;
+    const clienteNombre = esAdmin ? $('#reserva-cliente').value.trim() : '';
+    if (esAdmin && clienteNombre.length < 2) {
+      toast('Ingresa el nombre del cliente', 'error');
+      return;
+    }
+
     try {
-      btn.textContent = 'RESERVANDO...';
+      btn.textContent = esAdmin ? 'AGENDANDO...' : 'RESERVANDO...';
       btn.disabled = true;
 
-      await apiFetch('/reservas', {
-        method: 'POST',
-        body: JSON.stringify({
-          maquinariaId: reserva.maquinariaId,
-          fecha_inicio: ymd(reserva.inicio),
-          fecha_fin: ymd(reserva.fin),
-          telefono,
-          notas,
-        })
-      });
+      if (esAdmin) {
+        await apiFetch('/reservas/agendar', {
+          method: 'POST',
+          body: JSON.stringify({
+            maquinariaId: reserva.maquinariaId,
+            clienteNombre,
+            fecha_inicio: ymd(reserva.inicio),
+            fecha_fin: ymd(reserva.fin),
+            telefono,
+            notas,
+          })
+        });
+        toast(`Reserva agendada para ${clienteNombre} ✓`, 'success');
+      } else {
+        await apiFetch('/reservas', {
+          method: 'POST',
+          body: JSON.stringify({
+            maquinariaId: reserva.maquinariaId,
+            fecha_inicio: ymd(reserva.inicio),
+            fecha_fin: ymd(reserva.fin),
+            telefono,
+            notas,
+          })
+        });
+        toast('Reserva creada exitosamente ✓ Queda pendiente de aprobación.', 'success');
+      }
 
-      toast('Reserva creada exitosamente ✓ Queda pendiente de aprobación.', 'success');
       closeModal('modal-reserva');
     } catch (err) {
-      toast('Error al reservar: ' + err.message, 'error');
+      toast('Error: ' + err.message, 'error');
       // Si el backend rechazó por choque de fechas, recargar disponibilidad
-      if (err.status === 409) openReserva(reserva.maquinariaId, $('#reserva-nombre').textContent);
+      if (err.status === 409) openReserva(reserva.maquinariaId, $('#reserva-nombre').textContent, reserva.modoAdmin);
     } finally {
-      btn.textContent = 'CONFIRMAR RESERVA';
+      btn.textContent = reserva.modoAdmin ? 'AGENDAR RESERVA' : 'CONFIRMAR RESERVA';
       btn.disabled = false;
     }
   });

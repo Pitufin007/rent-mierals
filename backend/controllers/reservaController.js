@@ -129,6 +129,76 @@ const ReservaController = {
     }
   },
 
+  // POST /api/reservas/agendar - Solo admin. Agenda para un tercero y queda
+  // aprobada de inmediato (bloquea las fechas al toque).
+  async agendarAdmin(req, res) {
+    try {
+      const { maquinariaId, clienteNombre, fecha_inicio, fecha_fin, telefono, notas } = req.body;
+
+      const maquina = await MaquinariaModel.getById(maquinariaId);
+      if (!maquina) {
+        return res.status(404).json({ success: false, message: `No se encontró maquinaria con ID ${maquinariaId}` });
+      }
+      if (new Date(fecha_fin) < new Date(fecha_inicio)) {
+        return res.status(400).json({ success: false, message: 'La fecha de fin no puede ser anterior a la de inicio' });
+      }
+
+      // No pisar reservas ni mantenciones existentes.
+      const conflicto = await AgendaModel.hayConflicto(maquina.id, fecha_inicio, fecha_fin);
+      if (conflicto) {
+        return res.status(409).json({
+          success: false,
+          message: `El equipo ya está reservado del ${fechaCorta(conflicto.fecha_inicio)} al ${fechaCorta(conflicto.fecha_fin)}.`
+        });
+      }
+      const enMantencion = await MantenimientoModel.hayConflicto(maquina.id, fecha_inicio, fecha_fin);
+      if (enMantencion) {
+        return res.status(409).json({
+          success: false,
+          message: `El equipo está en mantención del ${fechaCorta(enMantencion.fecha_inicio)} al ${fechaCorta(enMantencion.fecha_fin)}.`
+        });
+      }
+
+      // Crear la reserva ya APROBADA. usuario_id = admin (creador);
+      // usuario_nombre = nombre del cliente (texto libre).
+      const nueva = await ReservaModel.create({
+        usuarioId: req.user.id,
+        usuarioNombre: clienteNombre,
+        maquinariaId: maquina.id,
+        maquinariaNombre: maquina.nombre,
+        fecha_inicio,
+        fecha_fin,
+        notas,
+        telefono,
+        estado: 'Aprobada',
+      });
+
+      // Insertar en la agenda (bloquea las fechas).
+      const precioDia = Number(maquina.precio_arriendo_dia) || 0;
+      const dias = diasEntre(fecha_inicio, fecha_fin);
+      await AgendaModel.create({
+        reservaId: nueva.id,
+        maquinariaId: maquina.id,
+        maquinariaNombre: maquina.nombre,
+        usuarioId: req.user.id,
+        clienteNombre,
+        clienteEmail: null,
+        clienteTelefono: telefono || null,
+        fecha_inicio,
+        fecha_fin,
+        precioDia,
+        precioTotal: precioDia * dias,
+        notas: notas || '',
+      });
+
+      notificarEventoReserva('aprobada', nueva);
+
+      res.status(201).json({ success: true, message: 'Reserva agendada y aprobada', data: nueva });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Error al agendar la reserva', error: error.message });
+    }
+  },
+
   // PUT /api/reservas/:id/estado - Solo admin (aprobar / rechazar / etc.)
   async updateEstado(req, res) {
     try {

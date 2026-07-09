@@ -56,7 +56,7 @@ const ReservaModel = {
     return fromRow(result.recordset[0]);
   },
 
-  async create({ usuarioId, usuarioNombre, maquinariaId, maquinariaNombre, fecha_inicio, fecha_fin, notas, telefono }) {
+  async create({ usuarioId, usuarioNombre, maquinariaId, maquinariaNombre, fecha_inicio, fecha_fin, notas, telefono, estado }) {
     const pool = await getPool();
     const result = await pool.request()
       .input('usuarioId', sql.Int, parseInt(usuarioId, 10))
@@ -67,12 +67,13 @@ const ReservaModel = {
       .input('fecha_fin', sql.Date, fecha_fin)
       .input('notas', sql.NVarChar, notas || '')
       .input('telefono', sql.NVarChar, telefono || null)
+      .input('estado', sql.NVarChar, estado || 'Pendiente')
       .query(`
         INSERT INTO reservas
           (usuario_id, usuario_nombre, maquinaria_id, maquinaria_nombre, fecha_inicio, fecha_fin, notas, telefono, estado)
         OUTPUT INSERTED.*
         VALUES
-          (@usuarioId, @usuarioNombre, @maquinariaId, @maquinariaNombre, @fecha_inicio, @fecha_fin, @notas, @telefono, 'Pendiente')
+          (@usuarioId, @usuarioNombre, @maquinariaId, @maquinariaNombre, @fecha_inicio, @fecha_fin, @notas, @telefono, @estado)
       `);
 
     return fromRow(result.recordset[0]);

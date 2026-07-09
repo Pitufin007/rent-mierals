@@ -6,7 +6,7 @@ const router = express.Router();
 const ReservaController = require('../controllers/reservaController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 const {
-  reservaValidator, estadoReservaValidator, idParamValidator, maquinariaIdParamValidator,
+  reservaValidator, estadoReservaValidator, idParamValidator, maquinariaIdParamValidator, agendarValidator,
 } = require('../middleware/validators');
 
 // Todas las rutas de reservas requieren estar autenticado
@@ -21,6 +21,9 @@ router.get('/disponibilidad/:maquinariaId', maquinariaIdParamValidator, ReservaC
 
 // POST /api/reservas - crear una reserva (cualquier usuario logueado)
 router.post('/', reservaValidator, ReservaController.create);
+
+// POST /api/reservas/agendar - el admin agenda para un tercero (queda aprobada)
+router.post('/agendar', requireAdmin, agendarValidator, ReservaController.agendarAdmin);
 
 // PUT /api/reservas/:id/estado - solo admin puede aprobar/rechazar
 router.put('/:id/estado', requireAdmin, estadoReservaValidator, ReservaController.updateEstado);

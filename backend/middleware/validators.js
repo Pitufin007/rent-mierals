@@ -115,6 +115,33 @@ const maquinariaIdParamValidator = [
   handleValidation,
 ];
 
+// ── Agendar (admin, para un tercero) ────────────────────────────────
+const agendarValidator = [
+  body('maquinariaId')
+    .notEmpty().withMessage('Falta la maquinaria')
+    .isInt({ min: 1 }).withMessage('Maquinaria inválida'),
+  body('clienteNombre')
+    .trim()
+    .notEmpty().withMessage('El nombre del cliente es obligatorio')
+    .isLength({ min: 2, max: 150 }).withMessage('El nombre debe tener entre 2 y 150 caracteres'),
+  body('fecha_inicio')
+    .notEmpty().withMessage('Falta la fecha de inicio')
+    .isISO8601().withMessage('Fecha de inicio inválida'),
+  body('fecha_fin')
+    .notEmpty().withMessage('Falta la fecha de término')
+    .isISO8601().withMessage('Fecha de término inválida'),
+  body('telefono')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 30 }).withMessage('Teléfono demasiado largo')
+    .matches(/^[0-9+()\s-]*$/).withMessage('Teléfono con caracteres inválidos'),
+  body('notas')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 }).withMessage('Las notas no pueden superar 500 caracteres'),
+  handleValidation,
+];
+
 // ── Mantención ──────────────────────────────────────────────────────
 const mantenimientoValidator = [
   body('maquinariaId')
@@ -144,4 +171,5 @@ module.exports = {
   idParamValidator,
   maquinariaIdParamValidator,
   mantenimientoValidator,
+  agendarValidator,
 };
