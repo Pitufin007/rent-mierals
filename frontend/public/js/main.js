@@ -157,7 +157,7 @@ async function renderNavbar() {
         <a href="/" class="logo" style="text-decoration:none">
           <div class="logo-icon">⛏</div>
           <div class="logo-text">
-            <span class="logo-title">RENT MIERALS</span>
+            <span class="logo-title">RENT MINERALS</span>
             <span class="logo-sub">Maquinaria Industrial</span>
           </div>
         </a>
@@ -187,16 +187,150 @@ function renderFooter() {
   const footer = document.querySelector('footer');
   if (!footer) return;
   footer.innerHTML = `
-    <strong>Rent Mierals</strong> · Arriendo De Maquinarias Mineras<br>
+    <strong>Rent Minerals</strong> · Arriendo De Maquinarias Mineras<br>
     Ricardo Barahona ${new Date().getFullYear()}
     <p class="footer-legal" style="font-size:0.8rem;opacity:0.65;margin-top:0.75rem;line-height:1.4;">
       Las marcas, logotipos y modelos mencionados en este sitio son propiedad de
-      sus respectivos dueños. Rent Mierals es una empresa de arriendo independiente
+      sus respectivos dueños. Rent Minerals es una empresa de arriendo independiente
       y no representa ni está afiliada oficialmente a ningún fabricante.
     </p>
   `;
 }
+// ══════════════════════════════════════════════════════════════════
+// Asistente virtual (IA) — burbuja flotante presente en todo el sitio
+//
+// Se dibuja solo si el backend confirma que la IA está configurada
+// (GET /api/ia/estado). Si no lo está, no aparece nada: la web sigue
+// funcionando igual.
+// ══════════════════════════════════════════════════════════════════
+const chatIA = {
+  abierto: false,
+  enviando: false,
+  historial: [],          // [{ rol: 'usuario'|'asistente', texto }]
+};
+
+function chatIAHtml() {
+  return `
+    <button id="ia-burbuja" class="ia-burbuja" title="Asistente virtual" aria-label="Abrir asistente virtual">
+      <span class="ia-burbuja-icono">💬</span>
+    </button>
+    <section id="ia-panel" class="ia-panel" role="dialog" aria-label="Asistente virtual" hidden>
+      <header class="ia-panel-head">
+        <div>
+          <strong>Asistente Rent Minerals</strong>
+          <span class="ia-panel-sub">Consulta equipos y disponibilidad</span>
+        </div>
+        <button class="ia-cerrar" id="ia-cerrar" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="ia-mensajes" id="ia-mensajes"></div>
+      <form class="ia-form" id="ia-form">
+        <input id="ia-input" type="text" autocomplete="off" maxlength="500"
+               placeholder="Escribe tu consulta...">
+        <button type="submit" class="ia-enviar" id="ia-enviar" aria-label="Enviar">➤</button>
+      </form>
+    </section>
+  `;
+}
+
+function chatIAPintarMensaje(rol, texto, opciones = {}) {
+  const cont = document.getElementById('ia-mensajes');
+  if (!cont) return null;
+  const div = document.createElement('div');
+  div.className = `ia-msg ia-msg-${rol}` + (opciones.clase ? ` ${opciones.clase}` : '');
+  div.innerHTML = escapeHtml(texto).replace(/\n/g, '<br>');
+  cont.appendChild(div);
+  cont.scrollTop = cont.scrollHeight;
+  return div;
+}
+
+async function chatIAEnviar(evento) {
+  evento.preventDefault();
+  if (chatIA.enviando) return;
+
+  const input = document.getElementById('ia-input');
+  const mensaje = input.value.trim();
+  if (!mensaje) return;
+
+  input.value = '';
+  chatIAPintarMensaje('usuario', mensaje);
+  chatIA.historial.push({ rol: 'usuario', texto: mensaje });
+
+  chatIA.enviando = true;
+  document.getElementById('ia-enviar').disabled = true;
+  const cargando = chatIAPintarMensaje('asistente', 'Escribiendo…', { clase: 'ia-cargando' });
+
+  try {
+    const res = await fetch(`${API_URL}/ia/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        mensaje,
+        // Enviamos solo los últimos turnos: da contexto sin gastar de más.
+        historial: chatIA.historial.slice(-8, -1),
+      }),
+    });
+    const data = await res.json();
+
+    if (cargando) cargando.remove();
+
+    if (res.ok && data.respuesta) {
+      chatIAPintarMensaje('asistente', data.respuesta);
+      chatIA.historial.push({ rol: 'asistente', texto: data.respuesta });
+    } else {
+      chatIAPintarMensaje('asistente', data.message || 'No pude responder en este momento.', { clase: 'ia-error' });
+    }
+  } catch (err) {
+    if (cargando) cargando.remove();
+    chatIAPintarMensaje('asistente', 'Hubo un problema de conexión. Intenta de nuevo.', { clase: 'ia-error' });
+  } finally {
+    chatIA.enviando = false;
+    const btn = document.getElementById('ia-enviar');
+    if (btn) btn.disabled = false;
+    input.focus();
+  }
+}
+
+function chatIAAlternar() {
+  const panel = document.getElementById('ia-panel');
+  const burbuja = document.getElementById('ia-burbuja');
+  if (!panel) return;
+
+  chatIA.abierto = !chatIA.abierto;
+  panel.hidden = !chatIA.abierto;
+  burbuja.classList.toggle('ia-burbuja-activa', chatIA.abierto);
+
+  if (chatIA.abierto) {
+    // Saludo inicial la primera vez que se abre.
+    if (!chatIA.historial.length) {
+      chatIAPintarMensaje('asistente',
+        '¡Hola! Soy el asistente de Rent Minerals. Puedo ayudarte a encontrar el equipo adecuado para tu faena, contarte precios y decirte qué días está disponible. ¿Qué necesitas?');
+    }
+    document.getElementById('ia-input').focus();
+  }
+}
+
+async function initChatIA() {
+  try {
+    const res = await fetch(`${API_URL}/ia/estado`);
+    const data = await res.json();
+    if (!data.habilitada) return;   // IA apagada → no mostramos nada
+
+    const contenedor = document.createElement('div');
+    contenedor.id = 'ia-widget';
+    contenedor.innerHTML = chatIAHtml();
+    document.body.appendChild(contenedor);
+
+    document.getElementById('ia-burbuja').addEventListener('click', chatIAAlternar);
+    document.getElementById('ia-cerrar').addEventListener('click', chatIAAlternar);
+    document.getElementById('ia-form').addEventListener('submit', chatIAEnviar);
+  } catch (err) {
+    // Si falla la comprobación, simplemente no se muestra el asistente.
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderNavbar();
   renderFooter();
+  initChatIA();
 });

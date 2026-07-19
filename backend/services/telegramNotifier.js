@@ -1,8 +1,9 @@
 // ══════════════════════════════════════════════════════════════════
 // backend/services/telegramNotifier.js
 //
-// Envía notificaciones al/los administrador(es) por Telegram cuando
-// ocurre un evento de reserva (nueva, aprobada, rechazada, cancelada).
+// Todo lo que sale y entra por Telegram.
+//   - Notificaciones automáticas al administrador ante eventos de reserva.
+//   - Envío de mensajes a un chat puntual (lo usa el asistente de IA).
 //
 // Diseño:
 //  - Multi-destinatario: TELEGRAM_CHAT_IDS admite varios chats separados
@@ -20,43 +21,69 @@ function leerConfig() {
   return { token, chatIds, habilitado: Boolean(token && chatIds.length) };
 }
 
+// ¿Este chat pertenece a un administrador autorizado?
+function esChatAutorizado(chatId) {
+  const { chatIds } = leerConfig();
+  return chatIds.includes(String(chatId));
+}
+
 // Fecha (Date o string) → 'YYYY-MM-DD'
 function fecha(v) {
   return String(v).slice(0, 10);
 }
 
+// Llamada genérica a la API de Telegram. Nunca lanza.
+async function llamarApi(metodo, cuerpo) {
+  const { token } = leerConfig();
+  if (!token) return null;
+  if (typeof fetch !== 'function') {
+    console.error('✖  Telegram: este Node no tiene fetch global (se requiere Node 18+).');
+    return null;
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/${metodo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    });
+    if (!res.ok) {
+      const detalle = await res.text().catch(() => '');
+      console.error(`✖  Telegram ${metodo}: HTTP ${res.status} ${detalle.slice(0, 200)}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`✖  Telegram ${metodo}: error de red:`, err.message);
+    return null;
+  }
+}
+
+// Envía un texto a UN chat concreto.
+async function enviarMensajeA(chatId, texto) {
+  const resultado = await llamarApi('sendMessage', {
+    chat_id: chatId,
+    text: texto,
+    disable_web_page_preview: true,
+  });
+  if (resultado) console.log(`✔  Telegram: mensaje enviado a ${chatId}`);
+  return resultado;
+}
+
+// Muestra "escribiendo…" en el chat mientras se procesa una respuesta.
+async function mostrarEscribiendo(chatId) {
+  return llamarApi('sendChatAction', { chat_id: chatId, action: 'typing' });
+}
+
 // Envía un texto a TODOS los chats configurados. Nunca lanza.
 async function enviarMensaje(texto) {
-  const { token, chatIds, habilitado } = leerConfig();
+  const { chatIds, habilitado } = leerConfig();
 
   if (!habilitado) {
     console.log('ℹ  Telegram no configurado (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_IDS). No se envía.');
     return;
   }
-  if (typeof fetch !== 'function') {
-    console.error('✖  Telegram: este Node no tiene fetch global (se requiere Node 18+).');
-    return;
-  }
-
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-
-  await Promise.all(chatIds.map(async chatId => {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: texto, disable_web_page_preview: true }),
-      });
-      if (res.ok) {
-        console.log(`✔  Telegram: mensaje enviado a ${chatId}`);
-      } else {
-        const detalle = await res.text().catch(() => '');
-        console.error(`✖  Telegram: fallo enviando a ${chatId} (HTTP ${res.status}) ${detalle}`);
-      }
-    } catch (err) {
-      console.error(`✖  Telegram: error de red enviando a ${chatId}:`, err.message);
-    }
-  }));
+  await Promise.all(chatIds.map(chatId => enviarMensajeA(chatId, texto)));
 }
 
 // Construye y envía el mensaje según el evento de reserva.
@@ -98,4 +125,11 @@ function logEstadoInicial() {
   }
 }
 
-module.exports = { enviarMensaje, notificarEventoReserva, logEstadoInicial };
+module.exports = {
+  enviarMensaje,
+  enviarMensajeA,
+  mostrarEscribiendo,
+  notificarEventoReserva,
+  esChatAutorizado,
+  logEstadoInicial,
+};

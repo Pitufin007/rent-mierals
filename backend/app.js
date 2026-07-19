@@ -12,6 +12,9 @@ const authRoutes       = require('./routes/authRoutes');
 const reservaRoutes    = require('./routes/reservaRoutes');   // ← NUEVO
 const agendaRoutes     = require('./routes/agendaRoutes');    // ← NUEVO (agenda de equipos)
 const mantenimientoRoutes = require('./routes/mantenimientoRoutes'); // ← NUEVO (mantención por fechas)
+const aiRoutes         = require('./routes/aiRoutes');               // ← NUEVO (asistente de IA)
+const telegramWebhookRoutes = require('./routes/telegramWebhookRoutes'); // ← NUEVO (asistente por Telegram)
+const tareasRoutes     = require('./routes/tareasRoutes');           // ← NUEVO (tareas programadas)
 const UserModel        = require('./models/userModel');
 
 const app = express();
@@ -85,6 +88,16 @@ app.use('/api/maquinaria', validateContentType, maquinariaRoutes);
 app.use('/api/reservas',   validateContentType, reservaRoutes);
 app.use('/api/agenda',     agendaRoutes);
 app.use('/api/mantenimiento', mantenimientoRoutes);
+
+// IA: chat público de atención (lleva su propio limitador de tasa).
+app.use('/api/ia', aiRoutes);
+
+// Telegram: webhook del asistente del administrador. No usa sesión — se
+// autentica con el secreto del webhook y la lista de chats autorizados.
+app.use('/api/telegram', telegramWebhookRoutes);
+
+// Tareas programadas, disparadas por un cron externo con secreto.
+app.use('/api/tareas', tareasRoutes);
 
 // Ruta raíz — ahora sirve la landing institucional
 app.get('/', (req, res) => {

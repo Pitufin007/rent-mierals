@@ -61,4 +61,15 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Demasiados intentos de acceso. Espera unos minutos e intenta otra vez.' },
 });
 
-module.exports = { securityHeaders, generalLimiter, authLimiter };
+// Limitador para el asistente de IA: cada consulta gasta cuota del
+// proveedor (y los planes gratuitos tienen tope diario), así que se
+// protege más que el resto de la API.
+const iaLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,        // 10 minutos
+  limit: 20,                       // 20 consultas por IP por ventana
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Has hecho muchas consultas seguidas. Espera unos minutos.' },
+});
+
+module.exports = { securityHeaders, generalLimiter, authLimiter, iaLimiter };

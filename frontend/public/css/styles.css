@@ -1614,3 +1614,161 @@ body,
   color: var(--light);
   min-height: 44px;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   ASISTENTE VIRTUAL (IA) — burbuja flotante + panel de chat
+   Usa las variables de tema, así que se adapta solo al modo oscuro.
+   ══════════════════════════════════════════════════════════════════ */
+
+.ia-burbuja {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--gold);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 900;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+  transition: transform .18s ease, background .18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ia-burbuja:hover        { background: var(--amber); transform: translateY(-2px); }
+.ia-burbuja-activa       { transform: scale(.92); }
+
+.ia-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 90px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  height: 480px;
+  max-height: calc(100vh - 130px);
+  background: var(--ore);
+  border: 1px solid var(--iron);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 901;
+}
+.ia-panel[hidden] { display: none; }
+
+.ia-panel-head {
+  background: var(--ink);
+  color: #fff;
+  padding: .8rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.ia-panel-head strong {
+  display: block;
+  font-size: .95rem;
+  letter-spacing: .3px;
+}
+.ia-panel-sub {
+  display: block;
+  font-size: .74rem;
+  opacity: .72;
+  margin-top: 2px;
+}
+.ia-cerrar {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: .8;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.ia-cerrar:hover { opacity: 1; background: rgba(255, 255, 255, .12); }
+
+.ia-mensajes {
+  flex: 1;
+  overflow-y: auto;
+  padding: .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  background: var(--coal);
+}
+
+.ia-msg {
+  max-width: 85%;
+  padding: .55rem .75rem;
+  border-radius: 12px;
+  font-size: .88rem;
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+.ia-msg-usuario {
+  align-self: flex-end;
+  background: var(--gold);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.ia-msg-asistente {
+  align-self: flex-start;
+  background: var(--ore);
+  color: var(--light);
+  border: 1px solid var(--iron);
+  border-bottom-left-radius: 4px;
+}
+.ia-cargando { opacity: .65; font-style: italic; }
+.ia-error    { border-color: var(--danger); color: var(--danger); }
+
+.ia-form {
+  display: flex;
+  gap: .45rem;
+  padding: .65rem;
+  border-top: 1px solid var(--iron);
+  background: var(--ore);
+}
+.ia-form input {
+  flex: 1;
+  padding: .55rem .7rem;
+  border: 1px solid var(--iron);
+  border-radius: 8px;
+  background: var(--steel);
+  color: var(--light);
+  font-size: .88rem;
+  font-family: inherit;
+}
+.ia-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.ia-enviar {
+  background: var(--gold);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background .18s ease;
+}
+.ia-enviar:hover:not(:disabled) { background: var(--amber); }
+.ia-enviar:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 520px) {
+  .ia-panel {
+    right: 12px;
+    left: 12px;
+    bottom: 84px;
+    width: auto;
+    height: 68vh;
+  }
+  .ia-burbuja { right: 16px; bottom: 16px; }
+}
